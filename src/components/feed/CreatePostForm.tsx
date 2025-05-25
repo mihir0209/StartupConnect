@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useFormStatus } from "react";
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { createPost } from "@/lib/actions/post.actions";
@@ -28,7 +28,7 @@ export function CreatePostForm() {
   const { user } = useAuth();
   const { toast } = useToast();
   const initialState = { message: null, errors: {}, type: "", post: null };
-  const [state, dispatch] = useFormState(createPost, initialState);
+  const [state, dispatch] = useActionState(createPost, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
