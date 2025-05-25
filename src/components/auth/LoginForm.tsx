@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -28,7 +29,7 @@ export function LoginForm() {
   const router = useRouter();
   const { login: contextLogin, user } = useAuth(); // AuthContext login
   const initialState = { message: null, errors: {}, type: "" };
-  const [state, dispatch] = useFormState(loginUser, initialState);
+  const [state, dispatch] = useActionState(loginUser, initialState);
 
   useEffect(() => {
     if (state?.type === "success" && state.user) {
