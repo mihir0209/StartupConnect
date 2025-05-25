@@ -1,11 +1,12 @@
+
 "use client";
 
-import type { SignupStep, SignupFormData, User } from "@/lib/types";
+import type { SignupStep, SignupFormData, User, ProfileData } from "@/lib/types";
 import { UserRole } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { signupUser } from "@/lib/actions/auth.actions";
+// import { signupUser } from "@/lib/actions/auth.actions"; // Server action no longer primary for this
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Logo } from "@/components/shared/Logo";
 import { SignupStep1Credentials } from "./SignupStep1Credentials";
@@ -13,12 +14,12 @@ import { SignupStep2Role } from "./SignupStep2Role";
 import { SignupStep3Profile } from "./SignupStep3Profile";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export function SignupFormWrapper() {
   const router = useRouter();
-  const { signup: contextSignup, user, isLoading: authLoading } = useAuth();
+  const { signupWithEmailPassword, user, isLoading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState<SignupStep>(1);
   const [formData, setFormData] = useState<SignupFormData>({});
   const [error, setError] = useState<string | null>(null);
@@ -53,20 +54,25 @@ export function SignupFormWrapper() {
     const finalData = { ...formData, ...data };
     setFormData(finalData);
 
-    // Basic validation before calling server action
-    if (!finalData.email || !finalData.password || !finalData.name || !finalData.role) {
-        setError("Some required information is missing from previous steps.");
+    if (!finalData.email || !finalData.password || !finalData.name || !finalData.role || !finalData.profileData) {
+        setError("All information is required to complete signup.");
         setIsSubmitting(false);
         return;
     }
 
-    const result = await signupUser(finalData);
+    const result = await signupWithEmailPassword(
+      finalData.email,
+      finalData.password,
+      finalData.name,
+      finalData.role,
+      finalData.profileData
+    );
 
-    if (result.type === "success") {
-      await contextSignup(result.user); // Use AuthContext to set user
-      router.push('/home');
+    if (result.success) {
+      // User state will be handled by onAuthStateChanged, redirecting via useEffect
+      router.push('/home'); 
     } else {
-      setError(result.message + (result.errors ? ` Details: ${JSON.stringify(result.errors)}` : ''));
+      setError(result.error || "An unknown error occurred during signup.");
     }
     setIsSubmitting(false);
   };
@@ -79,9 +85,15 @@ export function SignupFormWrapper() {
     3: "Complete Your Profile"
   };
 
-  if (authLoading) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  if (authLoading && !user) { // Show loader if auth is processing and no user yet (e.g. after signup submission)
+    return (
+        <div className="flex h-screen items-center justify-center bg-background p-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-2">Setting up your account...</p>
+        </div>
+    );
   }
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -114,6 +126,7 @@ export function SignupFormWrapper() {
               onBack={handleBack}
               role={formData.role}
               defaultValues={formData}
+              isSubmitting={isSubmitting}
             />
           )}
         </CardContent>

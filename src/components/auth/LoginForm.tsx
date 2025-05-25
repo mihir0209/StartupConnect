@@ -1,31 +1,47 @@
+
 "use client";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/shared/Logo";
-import { LogIn, Chrome } from "lucide-react"; // Using Chrome icon for Google
+import { LogIn, Chrome, AlertCircle } from "lucide-react";
 import { Loader2 } from "lucide-react";
-
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function LoginForm() {
   const router = useRouter();
-  const { loginWithGoogle, user, isLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmailPassword, user, isLoading: authLoading } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
 
   useEffect(() => {
-    if (user && !isLoading) {
-      // Check if it's a new user (e.g. by checking if profile is complete)
-      // For now, just redirect to home.
-      // Later, you might redirect new users to a profile completion page.
-      // Example: if (user.profile.startupName === '') router.push('/complete-profile');
+    if (user && !authLoading) {
       router.push('/home');
     }
-  }, [user, isLoading, router]);
+  }, [user, authLoading, router]);
 
-  if (isLoading && !user) { // Show loader only if not yet logged in but loading
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsEmailLoading(true);
+    const result = await loginWithEmailPassword(email, password);
+    if (!result.success) {
+      setError(result.error || "Login failed. Please check your credentials.");
+    }
+    // On success, useEffect will redirect
+    setIsEmailLoading(false);
+  };
+
+  if (authLoading && !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -33,9 +49,7 @@ export function LoginForm() {
     );
   }
   
-  // If already logged in (e.g. page reloaded while user is authenticated), useEffect will redirect.
-  // Avoid showing login form if user object exists.
-  if (user && !isLoading) {
+  if (user && !authLoading) {
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -43,7 +57,6 @@ export function LoginForm() {
       </div>
     );
   }
-
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -56,29 +69,77 @@ export function LoginForm() {
           <CardDescription>Sign in to access Nexus Startup.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="name@example.com" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
+            </div>
+            <Button 
+              type="submit"
+              className="w-full" 
+              disabled={isEmailLoading || authLoading}
+            >
+              {isEmailLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <LogIn className="mr-2 h-4 w-4" />
+              )}
+              Sign In with Email
+            </Button>
+          </form>
+          
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
           <Button 
             onClick={loginWithGoogle} 
-            className="w-full bg-primary hover:bg-primary/90" 
-            disabled={isLoading}
+            variant="outline"
+            className="w-full" 
+            disabled={authLoading || isEmailLoading}
           >
-            {isLoading ? (
+            {authLoading && !isEmailLoading ? ( // Show loader if Google Sign-In is loading
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Chrome className="mr-2 h-4 w-4" /> // Using Chrome icon as a stand-in for Google
+              <Chrome className="mr-2 h-4 w-4" />
             )}
             Sign in with Google
           </Button>
-          <p className="text-xs text-center text-muted-foreground pt-2">
-            The email/password login and signup flow will be re-evaluated.
-            For now, please use Google Sign-In.
-          </p>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
+        <CardFooter className="flex flex-col space-y-2 text-center">
             <p className="text-sm text-muted-foreground">
-            Don&apos;t have an account? Signing in with Google will create one for you.
-            </p>
-             <p className="text-sm text-muted-foreground">
-            Need to create a new account with email? <Link href="/signup" legacyBehavior><a className="font-medium text-primary hover:underline">Sign Up (Legacy)</a></Link>
+            Don&apos;t have an account? <Link href="/signup" legacyBehavior><a className="font-medium text-primary hover:underline">Sign Up</a></Link>
             </p>
         </CardFooter>
       </Card>

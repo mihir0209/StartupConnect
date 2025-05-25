@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { SignupFormData, ProfileField, FounderProfile, InvestorProfile, ExpertProfile } from "@/lib/types";
@@ -10,32 +11,36 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox import
+import { Loader2 } from "lucide-react";
+
 
 interface SignupStep3ProfileProps {
   onComplete: (data: Partial<SignupFormData>) => void;
   onBack: () => void;
   role: UserRole;
   defaultValues?: Partial<SignupFormData>;
+  isSubmitting: boolean; // Added isSubmitting prop
 }
 
 const BaseProfileSchema = z.object({
   bio: z.string().optional(),
   location: z.string().optional(),
   website: z.string().url().optional().or(z.literal('')),
-  // profilePictureUrl: z.string().url().optional().or(z.literal('')), // Handled by server action if not provided
+  profilePictureUrl: z.string().url().optional().or(z.literal('')),
   language: z.string().optional(),
 });
 
 const FounderProfileSchemaDef = BaseProfileSchema.extend({
   startupName: z.string().min(1, "Startup name is required"),
-  industry: z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry"),
-  fundingStage: z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage"),
+  industry: z.string().refine(val => val === '' || INDUSTRIES.includes(val), "Invalid industry"),
+  fundingStage: z.string().refine(val => val === '' || FUNDING_STAGES.includes(val), "Invalid funding stage"),
   traction: z.string().optional(),
   needs: z.string().optional(),
 });
 
 const InvestorProfileSchemaDef = BaseProfileSchema.extend({
-  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required"),
+  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required").optional(),
   fundingRange: z.string().optional(),
   portfolioHighlights: z.string().optional(),
   fundSize: z.string().optional(),
@@ -43,8 +48,8 @@ const InvestorProfileSchemaDef = BaseProfileSchema.extend({
 });
 
 const ExpertProfileSchemaDef = BaseProfileSchema.extend({
-  areaOfExpertise: z.string().refine(val => EXPERTISE_AREAS.includes(val), "Invalid expertise area"),
-  yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative"),
+  areaOfExpertise: z.string().refine(val => val === '' || EXPERTISE_AREAS.includes(val), "Invalid expertise area"),
+  yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative").optional(),
   servicesOffered: z.string().optional(),
 });
 
@@ -54,6 +59,7 @@ const getProfileFields = (role: UserRole): ProfileField[] => {
     { name: "bio", label: "Bio / About You", type: "textarea" },
     { name: "location", label: "Location (e.g., City, Country)", type: "text" },
     { name: "website", label: "Website/LinkedIn URL", type: "text" },
+    { name: "profilePictureUrl", label: "Profile Picture URL (Optional)", type: "text" },
     { name: "language", label: "Preferred Language", type: "select", options: LANGUAGES.map(l => l.name) },
   ];
 
@@ -70,15 +76,15 @@ const getProfileFields = (role: UserRole): ProfileField[] => {
     case UserRole.AngelInvestor:
     case UserRole.VC:
       const investorFields: ProfileField[] = [
-        { name: "investmentFocus", label: "Investment Focus (select multiple if applicable)", type: "multiselect", options: INDUSTRIES, required: true },
+        { name: "investmentFocus", label: "Investment Focus (select multiple)", type: "multiselect", options: INDUSTRIES, required: true },
         { name: "fundingRange", label: "Typical Funding Range (e.g., $50k - $250k)", type: "text" },
         { name: "portfolioHighlights", label: "Portfolio Highlights", type: "textarea" },
         ...commonFields,
       ];
       if (role === UserRole.VC) {
-        investorFields.unshift(
+        investorFields.unshift( // Add to beginning for VCs
           { name: "fundSize", label: "Fund Size", type: "text" },
-          { name: "preferredFundingStages", label: "Preferred Funding Stages", type: "multiselect", options: FUNDING_STAGES }
+          { name: "preferredFundingStages", label: "Preferred Funding Stages (select multiple)", type: "multiselect", options: FUNDING_STAGES }
         );
       }
       return investorFields;
@@ -105,16 +111,21 @@ const getValidationSchema = (role: UserRole) => {
 };
 
 
-export function SignupStep3Profile({ onComplete, onBack, role, defaultValues }: SignupStep3ProfileProps) {
+export function SignupStep3Profile({ onComplete, onBack, role, defaultValues, isSubmitting }: SignupStep3ProfileProps) {
   const profileFields = getProfileFields(role);
   const validationSchema = getValidationSchema(role);
   
-  const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { control, handleSubmit, formState: { errors } } = useForm({ // Removed isSubmitting from here as it's passed via props
     resolver: zodResolver(validationSchema),
-    defaultValues: defaultValues?.profileData || {},
+    defaultValues: {
+      // Ensure default values for multiselect are arrays
+      investmentFocus: defaultValues?.profileData?.investmentFocus || [],
+      preferredFundingStages: defaultValues?.profileData?.preferredFundingStages || [],
+      ...(defaultValues?.profileData || {}),
+    }
   });
 
-  const onSubmit = (data: any) => { // Data will be one of FounderProfile, InvestorProfile, etc.
+  const onSubmit = (data: any) => { 
     onComplete({ profileData: data });
   };
   
@@ -131,11 +142,11 @@ export function SignupStep3Profile({ onComplete, onBack, role, defaultValues }: 
               return <Textarea id={field.name} {...controllerField} value={controllerField.value || ''} placeholder={`Enter ${field.label.toLowerCase()}`}/>;
             }
             if (field.type === "number") {
-              return <Input id={field.name} type="number" {...controllerField} value={controllerField.value || ''} placeholder={`Enter ${field.label.toLowerCase()}`}/>;
+              return <Input id={field.name} type="number" {...controllerField} onChange={e => controllerField.onChange(parseInt(e.target.value,10) || 0)} value={controllerField.value || ''} placeholder={`Enter ${field.label.toLowerCase()}`}/>;
             }
             if (field.type === "select") {
               return (
-                <Select onValueChange={controllerField.onChange} defaultValue={controllerField.value}>
+                <Select onValueChange={controllerField.onChange} value={controllerField.value || undefined}>
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
                   </SelectTrigger>
@@ -147,18 +158,17 @@ export function SignupStep3Profile({ onComplete, onBack, role, defaultValues }: 
                 </Select>
               );
             }
-             if (field.type === "multiselect") { // Basic multiselect, can be improved with a proper component
+             if (field.type === "multiselect") {
               return (
-                <div className="space-y-2">
+                <div className="space-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
                   {field.options?.map(option => (
-                    <Label key={option} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-accent/50">
-                      <input
-                        type="checkbox"
-                        className="form-checkbox h-5 w-5 text-primary border-gray-300 rounded focus:ring-primary"
+                    <Label key={option} className="flex items-center space-x-2 p-1 hover:bg-accent/20 rounded-sm cursor-pointer">
+                      <Checkbox
+                        id={`${field.name}-${option}`}
                         checked={(controllerField.value as string[] || []).includes(option)}
-                        onChange={e => {
+                        onCheckedChange={checked => {
                           const currentValue = controllerField.value as string[] || [];
-                          if (e.target.checked) {
+                          if (checked) {
                             controllerField.onChange([...currentValue, option]);
                           } else {
                             controllerField.onChange(currentValue.filter(item => item !== option));
@@ -188,7 +198,7 @@ export function SignupStep3Profile({ onComplete, onBack, role, defaultValues }: 
           Back
         </Button>
         <Button type="submit" disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-          {isSubmitting ? "Completing..." : "Complete Signup"}
+          {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Completing...</> : "Complete Signup"}
         </Button>
       </div>
     </form>
