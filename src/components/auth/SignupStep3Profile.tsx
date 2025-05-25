@@ -24,33 +24,33 @@ interface SignupStep3ProfileProps {
 }
 
 const BaseProfileSchema = z.object({
-  bio: z.string().optional(),
-  location: z.string().optional(),
-  website: z.string().url().optional().or(z.literal('')),
-  profilePictureUrl: z.string().url().optional().or(z.literal('')),
-  language: z.string().optional(),
+  bio: z.string().optional().default(""),
+  location: z.string().optional().default(""),
+  website: z.string().url().optional().or(z.literal('')).default(""),
+  profilePictureUrl: z.string().url().optional().or(z.literal('')).default(""),
+  language: z.string().optional().default(""),
 });
 
 const FounderProfileSchemaDef = BaseProfileSchema.extend({
   startupName: z.string().min(1, "Startup name is required"),
-  industry: z.string().refine(val => val === '' || INDUSTRIES.includes(val), "Invalid industry"),
-  fundingStage: z.string().refine(val => val === '' || FUNDING_STAGES.includes(val), "Invalid funding stage"),
-  traction: z.string().optional(),
-  needs: z.string().optional(),
+  industry: z.string().refine(val => INDUSTRIES.includes(val), "Industry is required"),
+  fundingStage: z.string().refine(val => FUNDING_STAGES.includes(val), "Funding stage is required"),
+  traction: z.string().optional().default(""),
+  needs: z.string().optional().default(""),
 });
 
 const InvestorProfileSchemaDef = BaseProfileSchema.extend({
-  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required").optional(),
-  fundingRange: z.string().optional(),
-  portfolioHighlights: z.string().optional(),
-  fundSize: z.string().optional(),
-  preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage")).optional(),
+  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required"),
+  fundingRange: z.string().optional().default(""),
+  portfolioHighlights: z.string().optional().default(""),
+  fundSize: z.string().optional().default(""),
+  preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage")).optional().default([]),
 });
 
 const ExpertProfileSchemaDef = BaseProfileSchema.extend({
-  areaOfExpertise: z.string().refine(val => val === '' || EXPERTISE_AREAS.includes(val), "Invalid expertise area"),
-  yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative").optional(),
-  servicesOffered: z.string().optional(),
+  areaOfExpertise: z.string().refine(val => EXPERTISE_AREAS.includes(val), "Area of expertise is required"),
+  yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative"),
+  servicesOffered: z.string().optional().default(""),
 });
 
 
@@ -118,10 +118,12 @@ export function SignupStep3Profile({ onComplete, onBack, role, defaultValues, is
   const { control, handleSubmit, formState: { errors } } = useForm({ // Removed isSubmitting from here as it's passed via props
     resolver: zodResolver(validationSchema),
     defaultValues: {
-      // Ensure default values for multiselect are arrays
-      investmentFocus: defaultValues?.profileData?.investmentFocus || [],
-      preferredFundingStages: defaultValues?.profileData?.preferredFundingStages || [],
+      // Initialize with schema defaults then override with any existing profileData
+      ...validationSchema.parse({}), // This applies Zod .default() values
       ...(defaultValues?.profileData || {}),
+      // Ensure multiselects are arrays, Zod default([]) handles this if schema is correct
+      investmentFocus: (defaultValues?.profileData as InvestorProfile)?.investmentFocus || [],
+      preferredFundingStages: (defaultValues?.profileData as InvestorProfile)?.preferredFundingStages || [],
     }
   });
 

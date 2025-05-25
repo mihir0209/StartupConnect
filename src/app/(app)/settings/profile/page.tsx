@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -16,38 +17,40 @@ import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Checkbox } from "@/components/ui/checkbox";
 
-// Schemas for validation (can be imported from actions if centralized)
+
+// Schemas for validation
 const BaseProfileSchema = z.object({
-  bio: z.string().optional(),
-  location: z.string().optional(),
-  website: z.string().url().optional().or(z.literal('')),
-  profilePictureUrl: z.string().url().optional().or(z.literal('')),
-  language: z.string().optional(),
-  name: z.string().min(2, "Name is required"), // Added name here for basic info update
-  email: z.string().email("Invalid email"), // Added email here, potentially read-only
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Invalid email"), // Typically read-only after creation
+  bio: z.string().optional().default(""),
+  location: z.string().optional().default(""),
+  website: z.string().url().optional().or(z.literal('')).default(""),
+  profilePictureUrl: z.string().url().optional().or(z.literal('')).default(""),
+  language: z.string().optional().default(""),
 });
 
 const FounderProfileSchemaClient = BaseProfileSchema.extend({
   startupName: z.string().min(1, "Startup name is required"),
-  industry: z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry"),
-  fundingStage: z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage"),
-  traction: z.string().optional(),
-  needs: z.string().optional(),
+  industry: z.string().refine(val => INDUSTRIES.includes(val), "Industry is required"),
+  fundingStage: z.string().refine(val => FUNDING_STAGES.includes(val), "Funding stage is required"),
+  traction: z.string().optional().default(""),
+  needs: z.string().optional().default(""),
 });
 
 const InvestorProfileSchemaClient = BaseProfileSchema.extend({
   investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required"),
-  fundingRange: z.string().optional(),
-  portfolioHighlights: z.string().optional(),
-  fundSize: z.string().optional(),
-  preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage")).optional(),
+  fundingRange: z.string().optional().default(""),
+  portfolioHighlights: z.string().optional().default(""),
+  fundSize: z.string().optional().default(""),
+  preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage")).optional().default([]),
 });
 
 const ExpertProfileSchemaClient = BaseProfileSchema.extend({
-  areaOfExpertise: z.string().refine(val => EXPERTISE_AREAS.includes(val), "Invalid expertise area"),
+  areaOfExpertise: z.string().refine(val => EXPERTISE_AREAS.includes(val), "Area of expertise is required"),
   yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative"),
-  servicesOffered: z.string().optional(),
+  servicesOffered: z.string().optional().default(""),
 });
 
 const getValidationSchema = (role: UserRole) => {
@@ -56,15 +59,13 @@ const getValidationSchema = (role: UserRole) => {
     case UserRole.AngelInvestor:
     case UserRole.VC: return InvestorProfileSchemaClient;
     case UserRole.IndustryExpert: return ExpertProfileSchemaClient;
-    default: return BaseProfileSchema; // Should not happen if user has a role
+    default: return BaseProfileSchema; 
   }
 };
 
 const getProfileFields = (role: UserRole): ProfileField[] => {
-  // Similar to SignupStep3Profile, but adapted for editing
    const commonFields: ProfileField[] = [
     { name: "name", label: "Full Name", type: "text", required: true },
-    // email is usually not editable or handled separately
     { name: "bio", label: "Bio / About You", type: "textarea" },
     { name: "location", label: "Location (e.g., City, Country)", type: "text" },
     { name: "website", label: "Website/LinkedIn URL", type: "text" },
@@ -115,7 +116,7 @@ export default function ProfileSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const validationSchema = user ? getValidationSchema(user.role) : z.object({}); // Fallback empty schema
+  const validationSchema = user ? getValidationSchema(user.role) : BaseProfileSchema; // Fallback to BaseProfileSchema
   const profileFields = user ? getProfileFields(user.role) : [];
   
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<any>({
@@ -126,35 +127,36 @@ export default function ProfileSettingsPage() {
   useEffect(() => {
     if (user) {
       // Populate form with user data, including name and email at the base level
+      // Apply Zod defaults first, then overwrite with user's actual data
+      const schemaDefaults = validationSchema.parse({});
       const defaultFormData = {
+        ...schemaDefaults, // Apply Zod defaults for optional fields
         name: user.name,
-        email: user.email, // Display only, not editable
+        email: user.email, 
         ...(user.profile as any),
+        // Ensure multiselects are arrays
+        investmentFocus: (user.profile as InvestorProfile)?.investmentFocus || [],
+        preferredFundingStages: (user.profile as InvestorProfile)?.preferredFundingStages || [],
       };
       reset(defaultFormData);
     }
-  }, [user, reset]);
+  }, [user, reset, validationSchema]);
 
   const onSubmit: SubmitHandler<any> = async (data) => {
     if (!user) return;
 
-    // Separate name and email from profile data
-    const { name, email, ...profileDataFromForm } = data;
+    const { name: formName, email: formEmail, ...profileDataFromForm } = data;
     
-    // Simulate update
     const updatedUser: User = {
       ...user,
-      name: name, // Update name
-      // email: email, // Email typically not updated this way
+      name: formName, 
       profile: {
-        ...(user.profile as ProfileData), // Keep existing profile fields
-        ...profileDataFromForm, // Override with new data
+        ...(user.profile as ProfileData), 
+        ...profileDataFromForm, 
       } as ProfileData,
     };
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    updateUserInContext(updatedUser); // Update context
+    await updateUserInContext(updatedUser); 
     toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
     router.push(`/profile/${user.id}`);
   };
@@ -172,14 +174,14 @@ export default function ProfileSettingsPage() {
           name={field.name as any}
           control={control}
           render={({ field: controllerField }) => {
-            if (field.name === "email") { // Make email read-only
+            if (field.name === "email") { 
               return <Input id={field.name} {...controllerField} value={controllerField.value || ''} readOnly className="bg-muted/50" />;
             }
             if (field.type === "textarea") {
               return <Textarea id={field.name} {...controllerField} value={controllerField.value || ''} placeholder={`Enter ${field.label.toLowerCase()}`}/>;
             }
             if (field.type === "number") {
-              return <Input id={field.name} type="number" {...controllerField} value={controllerField.value || ''} placeholder={`Enter ${field.label.toLowerCase()}`}/>;
+              return <Input id={field.name} type="number" {...controllerField} onChange={e => controllerField.onChange(parseInt(e.target.value, 10) || 0)} value={controllerField.value || ''} placeholder={`Enter ${field.label.toLowerCase()}`}/>;
             }
             if (field.type === "select") {
               return (
@@ -238,7 +240,6 @@ export default function ProfileSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {profileFields.map(renderField)}
-             {/* Email field, typically non-editable here */}
             <div className="space-y-2">
                 <Label htmlFor="email">Email (Read-only)</Label>
                 <Controller
@@ -246,6 +247,7 @@ export default function ProfileSettingsPage() {
                     control={control}
                     render={({ field }) => <Input id="email" {...field} value={field.value || ''} readOnly className="bg-muted/50" />}
                 />
+                 {errors.email && <p className="text-sm text-destructive">{errors.email.message as string}</p>}
             </div>
           </CardContent>
           <CardFooter>
@@ -262,7 +264,6 @@ export default function ProfileSettingsPage() {
           <CardDescription>Manage your account preferences.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            {/* Language preferences and other settings can go here */}
             <div>
                 <Label>Language Preferences</Label>
                 <p className="text-sm text-muted-foreground">Localization for Hindi and Tamil is planned for future updates.</p>
