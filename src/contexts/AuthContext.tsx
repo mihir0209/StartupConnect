@@ -1,109 +1,130 @@
 "use client";
 
-import type { User } from '@/lib/types';
+import type { User, ProfileData, BaseProfile, FounderProfile } from '@/lib/types'; // Adjusted imports
+import { UserRole } from '@/lib/constants'; // For default role
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { mockUsers } from '@/lib/mockData'; // For demo purposes
+import { auth, googleProvider, db } from '@/lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, id?: string) => Promise<void>; // id for mock login
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  signup: (userData: User) => Promise<void>;
-  updateUserInContext: (updatedUser: User) => void;
+  // updateUserInContext might be replaced by direct Firestore updates later
+  updateUserInContext: (updatedUser: User) => void; // Keep for now for potential profile updates
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const MOCK_USER_ID_KEY = 'nexus_startup_mock_user_id';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const attemptAutoLogin = () => {
-      try {
-        const storedUserId = localStorage.getItem(MOCK_USER_ID_KEY);
-        if (storedUserId) {
-          const loggedInUser = mockUsers.find(u => u.id === storedUserId);
-          if (loggedInUser) {
-            setUser(loggedInUser);
-          } else {
-            localStorage.removeItem(MOCK_USER_ID_KEY); // Clean up if user not found
+    setIsLoading(true);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          setUser(userDocSnap.data() as User);
+        } else {
+          // User is new, create a basic profile in Firestore
+          const newUserProfile: FounderProfile = { // Default to FounderProfile, user should select/confirm role later
+            startupName: '', // Will be empty, user needs to fill this
+            industry: '', // Will be empty
+            fundingStage: '', // Will be empty
+            bio: `Joined Nexus Startup!`,
+            location: '',
+            website: '',
+            profilePictureUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firebaseUser.displayName || 'U')?.[0]}`,
+            language: 'en',
+          };
+          
+          const newAppUser: User = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || 'New User',
+            role: UserRole.Founder, // Default role, user should update this
+            profile: newUserProfile,
+            connections: [],
+            connectionRequestsSent: [],
+            connectionRequestsReceived: [],
+            createdAt: new Date().toISOString(), // Client-side timestamp for now
+            // Consider using serverTimestamp() for createdAt when writing to Firestore:
+            // createdAt: serverTimestamp(), 
+          };
+          try {
+            await setDoc(userDocRef, { ...newAppUser, createdAt: serverTimestamp() }); // Use server timestamp here
+            setUser(newAppUser);
+            // TODO: Redirect new users to a profile completion page here.
+          } catch (error) {
+            console.error("Error creating new user profile in Firestore:", error);
+            setUser(null); // Potentially clear user if profile creation fails
           }
         }
-      } catch (error) {
-        console.error("Failed to auto-login:", error);
-        // Could be due to localStorage access issues (e.g. SSR, private browsing)
-      } finally {
-        setIsLoading(false);
+      } else {
+        setUser(null);
       }
-    };
-    attemptAutoLogin();
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, id?: string) => {
+  const loginWithGoogle = async () => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const foundUser = id 
-      ? mockUsers.find(u => u.id === id) 
-      : mockUsers.find(u => u.email === email);
-
-    if (foundUser) {
-      setUser(foundUser);
-      try {
-        localStorage.setItem(MOCK_USER_ID_KEY, foundUser.id);
-      } catch (error) {
-        console.error("Failed to save user ID to localStorage:", error);
-      }
-    } else {
-      throw new Error("User not found or credentials incorrect");
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged will handle setting the user state and profile creation/fetching
+    } catch (error) {
+      console.error("Error during Google sign-in:", error);
+      // TODO: Show a toast notification to the user
+    } finally {
+      // setIsLoading(false); // onAuthStateChanged will set loading to false
     }
-    setIsLoading(false);
   };
 
   const logout = async () => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setUser(null);
     try {
-      localStorage.removeItem(MOCK_USER_ID_KEY);
+      await signOut(auth);
+      setUser(null); // Explicitly set user to null on logout
     } catch (error) {
-      console.error("Failed to remove user ID from localStorage:", error);
+        console.error("Error during sign out: ", error);
+    } finally {
+        setIsLoading(false);
     }
-    setIsLoading(false);
-  };
-
-  const signup = async (userData: User) => {
-    setIsLoading(true);
-    // Simulate API call to create user
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // In a real app, this would come from the backend response
-    const newUser = { ...userData, createdAt: new Date().toISOString() };
-    mockUsers.push(newUser); // Add to mock data for demo
-    setUser(newUser);
-    try {
-      localStorage.setItem(MOCK_USER_ID_KEY, newUser.id);
-    } catch (error) {
-      console.error("Failed to save user ID to localStorage:", error);
-    }
-    setIsLoading(false);
   };
   
-  const updateUserInContext = (updatedUser: User) => {
-    setUser(updatedUser);
-    // Optionally update mockUsers array if it's meant to be a persistent mock store for the session
-    const userIndex = mockUsers.findIndex(u => u.id === updatedUser.id);
-    if (userIndex !== -1) {
-      mockUsers[userIndex] = updatedUser;
+  // This function will need to be adapted to update Firestore
+  const updateUserInContext = async (updatedUserData: Partial<User>) => {
+    if (user) {
+      const userDocRef = doc(db, "users", user.id);
+      try {
+        // Create a partial update object for Firestore
+        const updatePayload: Partial<User> = {};
+        if (updatedUserData.name) updatePayload.name = updatedUserData.name;
+        if (updatedUserData.role) updatePayload.role = updatedUserData.role;
+        if (updatedUserData.profile) updatePayload.profile = updatedUserData.profile;
+        // Add other updatable fields as needed
+
+        await setDoc(userDocRef, updatePayload, { merge: true });
+        
+        // Update local state optimistically or after confirmation
+        setUser(prevUser => ({...prevUser, ...updatedUserData} as User));
+
+      } catch (error) {
+        console.error("Error updating user profile in Firestore:", error);
+      }
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, signup, updateUserInContext }}>
+    <AuthContext.Provider value={{ user, isLoading, loginWithGoogle, logout, updateUserInContext }}>
       {children}
     </AuthContext.Provider>
   );
