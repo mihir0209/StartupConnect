@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { signupUser } from "@/lib/actions/auth.actions";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Logo } from "@/components/shared/Logo";
 import { SignupStep1Credentials } from "./SignupStep1Credentials";
 import { SignupStep2Role } from "./SignupStep2Role";
