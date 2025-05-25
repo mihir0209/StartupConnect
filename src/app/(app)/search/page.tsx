@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,8 @@ import { useState } from "react";
 import Link from "next/link";
 
 type SearchResult = (User & { type: 'user' }) | (Post & { type: 'post' });
+
+const PLACEHOLDER_VALUE = "__placeholder__";
 
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +60,7 @@ export default function SearchPage() {
   };
 
   const handleFilterChange = (filterName: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
+    setFilters(prev => ({ ...prev, [filterName]: value === PLACEHOLDER_VALUE ? "" : value }));
   };
   
   const getInitials = (name: string = "") => {
@@ -76,20 +79,20 @@ export default function SearchPage() {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="role">Role</Label>
-            <Select onValueChange={value => handleFilterChange('role', value)} value={filters.role}>
+            <Select onValueChange={value => handleFilterChange('role', value)} value={filters.role || PLACEHOLDER_VALUE}>
               <SelectTrigger id="role"><SelectValue placeholder="Any Role" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Role</SelectItem>
+                <SelectItem value={PLACEHOLDER_VALUE}>Any Role</SelectItem>
                 {USER_ROLES.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label htmlFor="industry">Industry</Label>
-            <Select onValueChange={value => handleFilterChange('industry', value)} value={filters.industry}>
+            <Select onValueChange={value => handleFilterChange('industry', value)} value={filters.industry || PLACEHOLDER_VALUE}>
               <SelectTrigger id="industry"><SelectValue placeholder="Any Industry" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Industry</SelectItem>
+                <SelectItem value={PLACEHOLDER_VALUE}>Any Industry</SelectItem>
                 {INDUSTRIES.map(ind => <SelectItem key={ind} value={ind}>{ind}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -100,20 +103,20 @@ export default function SearchPage() {
           </div>
           <div>
             <Label htmlFor="fundingStage">Funding Stage</Label>
-            <Select onValueChange={value => handleFilterChange('fundingStage', value)} value={filters.fundingStage}>
+            <Select onValueChange={value => handleFilterChange('fundingStage', value)} value={filters.fundingStage || PLACEHOLDER_VALUE}>
               <SelectTrigger id="fundingStage"><SelectValue placeholder="Any Stage" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Stage</SelectItem>
+                <SelectItem value={PLACEHOLDER_VALUE}>Any Stage</SelectItem>
                 {FUNDING_STAGES.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label htmlFor="expertise">Expertise</Label>
-             <Select onValueChange={value => handleFilterChange('expertise', value)} value={filters.expertise}>
+             <Select onValueChange={value => handleFilterChange('expertise', value)} value={filters.expertise || PLACEHOLDER_VALUE}>
               <SelectTrigger id="expertise"><SelectValue placeholder="Any Expertise" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any Expertise</SelectItem>
+                <SelectItem value={PLACEHOLDER_VALUE}>Any Expertise</SelectItem>
                 {EXPERTISE_AREAS.map(exp => <SelectItem key={exp} value={exp}>{exp}</SelectItem>)}
               </SelectContent>
             </Select>
