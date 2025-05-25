@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Briefcase, MapPin, Link as LinkIcon, MessageSquare, UserPlus, CheckCircle, Edit3, Globe, BookOpen, Target, DollarSign, Brain, CalendarDays, Settings2 } from "lucide-react";
 import { PostCard } from "@/components/feed/PostCard";
 import Link from "next/link";
+import Image from "next/image"; // Added import
 
 // Mock current user ID for "Edit Profile" button visibility
 const currentMockUserId = 'user1'; 
