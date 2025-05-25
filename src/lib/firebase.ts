@@ -3,13 +3,13 @@ import { getAuth, GoogleAuthProvider, browserLocalPersistence, setPersistence } 
 import { getFirestore } from 'firebase/firestore';
 
 // IMPORTANT: Replace these with your actual Firebase project configuration
-const firebaseConfig: FirebaseOptions = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_AUTH_DOMAIN_HERE",
-  projectId: "YOUR_PROJECT_ID_HERE",
-  storageBucket: "YOUR_STORAGE_BUCKET_HERE",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "YOUR_APP_ID_HERE",
+const firebaseConfig = {
+  apiKey: "AIzaSyATblEu3tev8Gu5t7LMhXQQ7XKP2qs-2H8",
+  authDomain: "linkedin-clone-pro-yash.firebaseapp.com",
+  projectId: "linkedin-clone-pro-yash",
+  storageBucket: "linkedin-clone-pro-yash.firebasestorage.app",
+  messagingSenderId: "459735764566",
+  appId: "1:459735764566:web:038979818e924ae457f5f7",
 };
 
 // Initialize Firebase
