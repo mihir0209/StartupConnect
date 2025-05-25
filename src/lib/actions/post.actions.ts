@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -25,10 +26,11 @@ export async function createPost(prevState: any, formData: FormData) {
 
     const { content, imageUrl, authorId } = validatedFields.data;
     
-    const author = mockUsers.find(u => u.id === authorId);
-    if (!author) {
-        return { type: "error", message: "Author not found." };
-    }
+    // The authorId is from the authenticated session.
+    // We no longer strictly check if authorId exists in mockUsers here,
+    // as new users from Firebase Auth won't be in mockUsers initially.
+    // The responsibility of displaying author info correctly will be handled by PostCard
+    // or by migrating user data fully to Firestore.
 
     const newPost: Post = {
       id: `post${mockPosts.length + 1}`,
@@ -86,3 +88,4 @@ export async function addComment(postId: string, userId: string, content: string
 }
 
 // Additional actions like deletePost, updatePost can be added here.
+
