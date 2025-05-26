@@ -123,7 +123,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
       if (sendResult.success) {
         toast({ title: "Shared!", description: `Post sent to ${connection.name}.` });
         setIsShareDialogOpen(false);
-        router.push(`/messages?chatWith=${connection.id}&chatId=${chatResult.chatId}`);
+        // router.push(`/messages?chatWith=${connection.id}&chatId=${chatResult.chatId}`); // Removed navigation
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not send message." });
       }
@@ -330,3 +330,4 @@ export function PostCard({ post: initialPost }: PostCardProps) {
     </Card>
   );
 }
+
