@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useActionState } from "react";
@@ -14,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertCircle, ImagePlus, Send } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation'; // Added useRouter
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -28,6 +30,7 @@ function SubmitButton() {
 export function CreatePostForm() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter(); // Get router instance
   const initialState = { message: null, errors: {}, type: "", post: null };
   const [state, dispatch] = useActionState(createPost, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -36,10 +39,11 @@ export function CreatePostForm() {
     if (state?.type === "success" && state.post) {
       toast({ title: "Success!", description: "Your post has been published." });
       formRef.current?.reset(); // Reset the form fields
+      router.refresh(); // Refresh the current route to re-fetch data
     } else if (state?.type === "error" && state.message) {
       toast({ variant: "destructive", title: "Error", description: state.message });
     }
-  }, [state, toast]);
+  }, [state, toast, router]); // Added router to dependency array
 
   if (!user) return null;
   
@@ -52,7 +56,14 @@ export function CreatePostForm() {
 
   // Add authorId to formData. This is a hidden input, or could be passed differently if not FormData
   const handleSubmitWithAuthor = (formData: FormData) => {
-    formData.append('authorId', user.id);
+    if (user) { // Ensure user is not null before appending authorId
+      formData.append('authorId', user.id);
+    } else {
+      // Handle case where user is null, though CreatePostForm returns null if !user
+      // This is a defensive check.
+      toast({ variant: "destructive", title: "Error", description: "User not authenticated to post." });
+      return;
+    }
     dispatch(formData);
   }
 
