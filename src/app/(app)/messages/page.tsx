@@ -12,26 +12,22 @@ import type { Chat, Message as MessageType, User } from "@/lib/types";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
+import { ScrollArea } from "@/components/ui/scroll-area"; 
 
 
-// Make a mutable copy for client-side interaction simulation
-// This is already a global 'let' in mockData.ts, so we can use it directly
-// let mockChats: Chat[] = JSON.parse(JSON.stringify(initialMockChats)); 
-
-// Helper to get participant details
 const getParticipantDetails = (participantIds: string[], currentUserId: string) => {
     const otherParticipantId = participantIds.find(id => id !== currentUserId);
     if (!otherParticipantId) return { name: 'Unknown Group', avatar: 'https://placehold.co/40x40.png?text=G', userId: null };
     const user = mockUsers.find(u => u.id === otherParticipantId);
     return { 
       name: user?.name || 'Unknown User', 
-      avatar: user?.profile.profilePictureUrl || `https://placehold.co/40x40.png?text=${user?.name?.[0] || 'U'}`,
+      avatar: user?.profile.profilePictureUrl || `https://placehold.co/40x40.png?text=${getInitials(user?.name)}`,
       userId: user?.id || null
     };
 };
 
 const getInitials = (name: string = "") => {
+    if (!name) return 'U';
     const names = name.split(' ');
     if (names.length === 1) return names[0][0]?.toUpperCase() || 'U';
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
@@ -43,10 +39,9 @@ export default function MessagesPage() {
   const router = useRouter();
   
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
-  // Messages are now part of selectedChat.messages, no separate messages state needed here at top level.
   const [newMessage, setNewMessage] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null); // For scrolling to bottom
+  const messagesEndRef = useRef<HTMLDivElement>(null); 
 
   useEffect(() => {
     const chatWithUserId = searchParams.get('chatWith');
@@ -64,21 +59,19 @@ export default function MessagesPage() {
         if (preselectedChatId) {
             chatToSelect = initialMockChats.find(c => c.id === preselectedChatId && c.participantIds.includes(currentUser.id));
         } else if (chatWithUserId) {
-            // Try to find an existing 1-on-1 chat
             chatToSelect = initialMockChats.find(c => 
                 !c.isGroupChat && 
                 c.participantIds.includes(currentUser.id) && 
                 c.participantIds.includes(chatWithUserId)
             );
 
-            if (!chatToSelect) { // If no chat, try to create one
+            if (!chatToSelect) { 
                 const result = await createMockChat([currentUser.id, chatWithUserId]);
                 if (result.success && result.chat) {
                     chatToSelect = result.chat; 
                 }
             }
         } else if (initialMockChats.filter(c => c.participantIds.includes(currentUser.id)).length > 0) {
-             // Default to first chat if no specific user is targeted
              const userChats = initialMockChats.filter(c => c.participantIds.includes(currentUser.id))
                 .sort((a,b) => new Date(b.lastMessage?.timestamp || 0).getTime() - new Date(a.lastMessage?.timestamp || 0).getTime());
              chatToSelect = userChats[0];
@@ -92,7 +85,6 @@ export default function MessagesPage() {
   }, [searchParams, currentUser, createMockChat]);
 
   useEffect(() => {
-    // Scroll to bottom when selectedChat or its messages change
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
@@ -110,19 +102,16 @@ export default function MessagesPage() {
     const result = await sendMessage(selectedChat.id, currentUser.id, newMessage.trim());
 
     if (result.success && result.newMessage) {
-        // The sendMessage in AuthContext already updates mockChats.
-        // We need to re-fetch or update selectedChat to reflect the new message.
         const updatedChat = initialMockChats.find(c => c.id === selectedChat.id);
         setSelectedChat(updatedChat || null);
         setNewMessage("");
     } else {
-        // Handle error, e.g. show a toast
         console.error("Failed to send message:", result.error);
     }
   };
 
   if (isChatLoading || !currentUser) {
-    return <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] items-center justify-center">Loading chats...</div>;
+    return <div className="flex h-full items-center justify-center">Loading chats...</div>;
   }
   
   const userChats = initialMockChats
@@ -130,7 +119,7 @@ export default function MessagesPage() {
     .sort((a,b) => new Date(b.lastMessage?.timestamp || 0).getTime() - new Date(a.lastMessage?.timestamp || 0).getTime());
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] border rounded-lg overflow-hidden shadow-lg">
+    <div className="flex h-full border rounded-lg overflow-hidden shadow-lg">
       <div className="w-1/3 border-r bg-card flex flex-col">
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-3">
@@ -189,7 +178,7 @@ export default function MessagesPage() {
                     </div>
                 </div>
               ))}
-              <div ref={messagesEndRef} /> {/* Element to scroll to */}
+              <div ref={messagesEndRef} /> 
               {(selectedChat.messages || []).length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
             </ScrollArea>
             <div className="p-4 border-t bg-card flex items-center gap-2">

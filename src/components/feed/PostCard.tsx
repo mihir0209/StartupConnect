@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, ThumbsUp, Share2, MoreHorizontal, Send as SendIcon } from "lucide-react";
+import { MessageCircle, ThumbsUp, Share2, MoreHorizontal, Send as SendIcon, Edit3, Trash2, AlertOctagon, Bookmark } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { likePost, addComment } from "@/lib/actions/post.actions";
 import { useState, useTransition, useEffect } from "react";
@@ -17,6 +17,7 @@ import { Textarea } from "../ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
@@ -36,10 +37,11 @@ export function PostCard({ post: initialPost }: PostCardProps) {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   useEffect(() => {
-    setCurrentPost(initialPost); // Sync with prop changes if any (e.g. parent list refreshes)
+    setCurrentPost(initialPost); 
   }, [initialPost]);
 
   const getInitials = (name: string = "") => {
+    if(!name) return 'U';
     const names = name.split(' ');
     if (names.length === 1) return names[0][0]?.toUpperCase() || 'A';
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
@@ -104,7 +106,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
       if (result.success && result.updatedPost) {
         setCurrentPost(result.updatedPost);
         setCommentText("");
-        setShowComments(true); // Ensure comments section is open
+        setShowComments(true); 
         toast({ title: "Success", description: "Comment added." });
       } else {
         toast({ variant: "destructive", title: "Error", description: "Failed to add comment." });
@@ -116,7 +118,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
     if (!loggedInUser) return;
     const chatResult = await createMockChat([loggedInUser.id, connection.id]);
     if (chatResult.success && chatResult.chatId) {
-      const messageContent = `Check out this post by ${authorForDisplay.name}:\n"${currentPost.content.substring(0, 70)}${currentPost.content.length > 70 ? '...' : ''}"\n\nView post: /posts/${currentPost.id}`; // Mock link
+      const messageContent = `Check out this post by ${authorForDisplay.name}:\n"${currentPost.content.substring(0, 70)}${currentPost.content.length > 70 ? '...' : ''}"\n\nView post: /posts/${currentPost.id}`; 
       const sendResult = await sendMessage(chatResult.chatId, loggedInUser.id, messageContent);
       if (sendResult.success) {
         toast({ title: "Shared!", description: `Post sent to ${connection.name}.` });
@@ -131,6 +133,27 @@ export function PostCard({ post: initialPost }: PostCardProps) {
   };
   
   const userConnections = loggedInUser ? mockUsers.filter(u => loggedInUser.connections.includes(u.id) && u.id !== loggedInUser.id) : [];
+
+  const handleEditPost = () => {
+    toast({ title: "Feature Info", description: "Editing posts will be available soon." });
+  };
+
+  const handleDeletePost = () => {
+    // For a mock, we might remove it from a global store or just notify
+    toast({ title: "Feature Info", description: "Deleting posts will be available soon. For now, imagine it's gone!"});
+    // To actually remove from UI if mockPosts is part of a global state or prop:
+    // 1. Call an action that removes post from mockPosts.
+    // 2. Trigger a re-fetch or re-render of the feed.
+    // For now, a toast is sufficient.
+  };
+  
+  const handleReportPost = () => {
+    toast({ title: "Post Reported", description: "Thank you for your feedback (mock)." });
+  };
+  
+  const handleSavePost = () => {
+    toast({ title: "Post Saved (Mock)", description: "This post has been added to your saved items." });
+  };
 
 
   return (
@@ -151,10 +174,37 @@ export function PostCard({ post: initialPost }: PostCardProps) {
               </div>
             </a>
           </Link>
-          <Button variant="ghost" size="icon" className="ml-auto">
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="sr-only">More options</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="ml-auto">
+                <MoreHorizontal className="h-5 w-5" />
+                <span className="sr-only">More options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {loggedInUser && loggedInUser.id === currentPost.authorId && (
+                <>
+                  <DropdownMenuItem onClick={handleEditPost}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Edit Post
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDeletePost} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Post
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              <DropdownMenuItem onClick={handleSavePost}>
+                <Bookmark className="mr-2 h-4 w-4" />
+                Save Post
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleReportPost}>
+                <AlertOctagon className="mr-2 h-4 w-4" />
+                Report Post
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
