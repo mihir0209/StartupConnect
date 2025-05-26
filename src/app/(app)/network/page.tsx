@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserPlus, UserCheck } from "lucide-react";
 import { mockUsers } from "@/lib/mockData";
@@ -47,7 +48,9 @@ export default function NetworkPage() {
                   </Avatar>
                   <Link href={`/profile/${user.id}`} className="font-semibold hover:underline">{user.name}</Link>
                   <p className="text-xs text-muted-foreground">{user.role}</p>
-                  <Button variant="outline" size="sm" className="mt-2">View Profile</Button>
+                  <Button variant="outline" size="sm" className="mt-2" asChild>
+                    <Link href={`/profile/${user.id}`}>View Profile</Link>
+                  </Button>
                 </Card>
               ))}
             </div>
