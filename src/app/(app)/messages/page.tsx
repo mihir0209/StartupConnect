@@ -102,8 +102,10 @@ export default function MessagesPage() {
     const result = await sendMessage(selectedChat.id, currentUser.id, newMessage.trim());
 
     if (result.success && result.newMessage) {
+        // The mockChats array is mutated by sendMessage in AuthContext,
+        // so we find the updated chat from there.
         const updatedChat = initialMockChats.find(c => c.id === selectedChat.id);
-        setSelectedChat(updatedChat || null);
+        setSelectedChat(updatedChat || null); // Ensure re-render with new messages
         setNewMessage("");
     } else {
         console.error("Failed to send message:", result.error);
@@ -134,6 +136,13 @@ export default function MessagesPage() {
         <ScrollArea className="flex-1">
           {userChats.map(chat => {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
+            const lastMessageContent = chat.lastMessage?.content;
+            const previewText = lastMessageContent 
+              ? (lastMessageContent.length > 25 
+                  ? lastMessageContent.substring(0, 25) + "..." 
+                  : lastMessageContent)
+              : "No messages yet";
+
             return (
               <button 
                 key={chat.id} 
@@ -146,7 +155,7 @@ export default function MessagesPage() {
                 </Avatar>
                 <div className="flex-1 overflow-hidden">
                   <p className="font-semibold truncate">{details.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{chat.lastMessage?.content || "No messages yet"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{previewText}</p>
                 </div>
                 {chat.lastMessage && <p className="text-xs text-muted-foreground self-start shrink-0">{new Date(chat.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
               </button>
@@ -207,3 +216,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
