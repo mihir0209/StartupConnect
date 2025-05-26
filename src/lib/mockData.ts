@@ -135,5 +135,36 @@ export let mockCommunities: Community[] = [
   },
 ];
 
-export let mockChats: Chat[] = [];
+export let mockChats: Chat[] = [
+    // Example: A chat between user1 and user2
+    // This structure will be populated/updated by createMockChat and sendMessage
+    {
+        id: 'chat_user1_user2', // Example ID, might be generated differently
+        participantIds: ['user1', 'user2'].sort(),
+        messages: [
+            {
+                id: 'msg1',
+                chatId: 'chat_user1_user2',
+                senderId: 'user1',
+                content: 'Hey Bob, saw your article on Climate Tech!',
+                timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString() // 30 mins ago
+            },
+            {
+                id: 'msg2',
+                chatId: 'chat_user1_user2',
+                senderId: 'user2',
+                content: 'Thanks Alice! Glad you liked it.',
+                timestamp: new Date(Date.now() - 1000 * 60 * 28).toISOString() // 28 mins ago
+            }
+        ],
+        lastMessage: {
+                id: 'msg2',
+                chatId: 'chat_user1_user2',
+                senderId: 'user2',
+                content: 'Thanks Alice! Glad you liked it.',
+                timestamp: new Date(Date.now() - 1000 * 60 * 28).toISOString()
+            },
+        isGroupChat: false,
+    }
+];
 export let mockCofounderListings: CofounderListing[] = [];

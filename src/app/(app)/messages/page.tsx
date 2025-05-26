@@ -9,13 +9,15 @@ import { mockUsers, mockChats as initialMockChats } from "@/lib/mockData";
 import { MessageSquare, Send, Search, PlusCircle, Paperclip } from "lucide-react";
 import Link from "next/link";
 import type { Chat, Message as MessageType, User } from "@/lib/types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
 
 
 // Make a mutable copy for client-side interaction simulation
-let mockChats: Chat[] = JSON.parse(JSON.stringify(initialMockChats)); 
+// This is already a global 'let' in mockData.ts, so we can use it directly
+// let mockChats: Chat[] = JSON.parse(JSON.stringify(initialMockChats)); 
 
 // Helper to get participant details
 const getParticipantDetails = (participantIds: string[], currentUserId: string) => {
@@ -36,18 +38,19 @@ const getInitials = (name: string = "") => {
 }
 
 export default function MessagesPage() {
-  const { user: currentUser, createMockChat } = useAuth();
+  const { user: currentUser, createMockChat, sendMessage } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
-  const [messages, setMessages] = useState<MessageType[]>([]);
+  // Messages are now part of selectedChat.messages, no separate messages state needed here at top level.
   const [newMessage, setNewMessage] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null); // For scrolling to bottom
 
   useEffect(() => {
     const chatWithUserId = searchParams.get('chatWith');
-    const preselectedChatId = searchParams.get('chatId'); // From profile page potentially
+    const preselectedChatId = searchParams.get('chatId'); 
 
     const initializeChat = async () => {
         setIsChatLoading(true);
@@ -56,94 +59,75 @@ export default function MessagesPage() {
             return;
         }
 
+        let chatToSelect: Chat | undefined | null = null;
+
         if (preselectedChatId) {
-            const chat = mockChats.find(c => c.id === preselectedChatId);
-            if (chat) {
-                setSelectedChat(chat);
-                setMessages(chat.lastMessage ? [chat.lastMessage] : []); // Simplified
-            }
+            chatToSelect = initialMockChats.find(c => c.id === preselectedChatId && c.participantIds.includes(currentUser.id));
         } else if (chatWithUserId) {
             // Try to find an existing 1-on-1 chat
-            let existingChat = mockChats.find(c => 
+            chatToSelect = initialMockChats.find(c => 
                 !c.isGroupChat && 
                 c.participantIds.includes(currentUser.id) && 
                 c.participantIds.includes(chatWithUserId)
             );
 
-            if (!existingChat) { // If no chat, try to create one (mock)
+            if (!chatToSelect) { // If no chat, try to create one
                 const result = await createMockChat([currentUser.id, chatWithUserId]);
-                if (result.success && result.chatId) {
-                    existingChat = mockChats.find(c => c.id === result.chatId);
+                if (result.success && result.chat) {
+                    chatToSelect = result.chat; 
                 }
             }
-            
-            if (existingChat) {
-                setSelectedChat(existingChat);
-                setMessages(existingChat.lastMessage ? [existingChat.lastMessage] : []); // Simplified
-            } else {
-                // Could not find or create chat, maybe show an error or default state
-                setSelectedChat(null);
-                setMessages([]);
-            }
-        } else if (mockChats.length > 0) {
-            // Default to first chat if no specific user is targeted
-             const firstUserChat = mockChats.find(c => c.participantIds.includes(currentUser.id));
-             if (firstUserChat) {
-                setSelectedChat(firstUserChat);
-                setMessages(firstUserChat.lastMessage ? [firstUserChat.lastMessage] : []);
-             } else {
-                setSelectedChat(null);
-                setMessages([]);
-             }
-        } else {
-             setSelectedChat(null);
-             setMessages([]);
+        } else if (initialMockChats.filter(c => c.participantIds.includes(currentUser.id)).length > 0) {
+             // Default to first chat if no specific user is targeted
+             const userChats = initialMockChats.filter(c => c.participantIds.includes(currentUser.id))
+                .sort((a,b) => new Date(b.lastMessage?.timestamp || 0).getTime() - new Date(a.lastMessage?.timestamp || 0).getTime());
+             chatToSelect = userChats[0];
         }
+        
+        setSelectedChat(chatToSelect || null);
         setIsChatLoading(false);
     };
 
     initializeChat();
   }, [searchParams, currentUser, createMockChat]);
 
+  useEffect(() => {
+    // Scroll to bottom when selectedChat or its messages change
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [selectedChat?.messages]);
+
 
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
-    setMessages(chat.lastMessage ? [chat.lastMessage] : []); 
-    // In a real app, fetch all messages for chat.id
-    // Clear query params if user manually selects a different chat
-    router.replace('/messages', { scroll: false }); 
+    router.replace(`/messages?chatId=${chat.id}`, { scroll: false }); 
   };
   
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChat || !currentUser) return;
-    const message: MessageType = {
-        id: `msg${Date.now()}`,
-        chatId: selectedChat.id,
-        senderId: currentUser.id,
-        content: newMessage.trim(),
-        timestamp: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, message]);
     
-    const chatIndex = mockChats.findIndex(c => c.id === selectedChat.id);
-    if (chatIndex > -1) {
-        mockChats[chatIndex].lastMessage = message;
-        // Potentially re-sort mockChats based on lastMessage timestamp if sidebar order matters
-         mockChats.sort((a, b) => {
-            if (!a.lastMessage) return 1;
-            if (!b.lastMessage) return -1;
-            return new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime();
-        });
+    const result = await sendMessage(selectedChat.id, currentUser.id, newMessage.trim());
+
+    if (result.success && result.newMessage) {
+        // The sendMessage in AuthContext already updates mockChats.
+        // We need to re-fetch or update selectedChat to reflect the new message.
+        const updatedChat = initialMockChats.find(c => c.id === selectedChat.id);
+        setSelectedChat(updatedChat || null);
+        setNewMessage("");
+    } else {
+        // Handle error, e.g. show a toast
+        console.error("Failed to send message:", result.error);
     }
-    setNewMessage("");
   };
 
   if (isChatLoading || !currentUser) {
     return <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] items-center justify-center">Loading chats...</div>;
   }
   
-  // Filter chats to only show those the currentUser is part of
-  const userChats = mockChats.filter(chat => chat.participantIds.includes(currentUser.id));
+  const userChats = initialMockChats
+    .filter(chat => chat.participantIds.includes(currentUser.id))
+    .sort((a,b) => new Date(b.lastMessage?.timestamp || 0).getTime() - new Date(a.lastMessage?.timestamp || 0).getTime());
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] border rounded-lg overflow-hidden shadow-lg">
@@ -158,7 +142,7 @@ export default function MessagesPage() {
             <Input placeholder="Search chats..." className="pl-8" />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1">
           {userChats.map(chat => {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
             return (
@@ -180,7 +164,7 @@ export default function MessagesPage() {
             );
           })}
            {userChats.length === 0 && <p className="p-4 text-center text-muted-foreground">No conversations yet.</p>}
-        </div>
+        </ScrollArea>
       </div>
 
       <div className="w-2/3 flex flex-col bg-background">
@@ -193,21 +177,21 @@ export default function MessagesPage() {
               </Avatar>
               <div>
                 <p className="font-semibold">{getParticipantDetails(selectedChat.participantIds, currentUser.id).name}</p>
-                {/* Mock status or link to profile */}
                  <Link href={`/profile/${getParticipantDetails(selectedChat.participantIds, currentUser.id).userId || ''}`} className="text-xs text-primary hover:underline">View Profile</Link>
               </div>
             </div>
-            <div className="flex-1 p-4 overflow-y-auto space-y-4">
-              {messages.map(msg => (
+            <ScrollArea className="flex-1 p-4 space-y-4">
+              {(selectedChat.messages || []).map(msg => (
                 <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow ${msg.senderId === currentUser.id ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
-                        <p className="text-sm">{msg.content}</p>
+                        <p className="text-sm whitespace-pre-line">{msg.content}</p>
                         <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                 </div>
               ))}
-              {messages.length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
-            </div>
+              <div ref={messagesEndRef} /> {/* Element to scroll to */}
+              {(selectedChat.messages || []).length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
+            </ScrollArea>
             <div className="p-4 border-t bg-card flex items-center gap-2">
               <Button variant="ghost" size="icon"><Paperclip className="h-5 w-5 text-muted-foreground"/></Button>
               <Input 

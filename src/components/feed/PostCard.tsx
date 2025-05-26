@@ -1,32 +1,43 @@
 
 "use client";
 
-import type { Post, User as AuthorType, UserRole, ProfileData, FounderProfile } from "@/lib/types"; // Added UserRole, ProfileData
-import { mockUsers } from "@/lib/mockData"; // To find author details
+import type { Post, User as AuthorType, UserRole, ProfileData, User } from "@/lib/types"; 
+import { mockUsers } from "@/lib/mockData"; 
 import Image from "next/image";
 import Link from "next/link";
 import { formatDistanceToNow } from 'date-fns';
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, ThumbsUp, Share2, MoreHorizontal } from "lucide-react";
+import { MessageCircle, ThumbsUp, Share2, MoreHorizontal, Send as SendIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { likePost, addComment } from "@/lib/actions/post.actions";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { INDUSTRIES, FUNDING_STAGES } from "@/lib/constants"; // For fallback
+import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 interface PostCardProps {
   post: Post;
 }
 
-export function PostCard({ post }: PostCardProps) {
-  const { user: loggedInUser } = useAuth();
+export function PostCard({ post: initialPost }: PostCardProps) {
+  const { user: loggedInUser, createMockChat, sendMessage } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  
+  const [currentPost, setCurrentPost] = useState<Post>(initialPost);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setCurrentPost(initialPost); // Sync with prop changes if any (e.g. parent list refreshes)
+  }, [initialPost]);
 
   const getInitials = (name: string = "") => {
     const names = name.split(' ');
@@ -41,7 +52,7 @@ export function PostCard({ post }: PostCardProps) {
     profile: { profilePictureUrl?: string };
   };
 
-  const foundMockAuthor = mockUsers.find(u => u.id === post.authorId);
+  const foundMockAuthor = mockUsers.find(u => u.id === currentPost.authorId);
 
   if (foundMockAuthor) {
     authorForDisplay = {
@@ -50,8 +61,7 @@ export function PostCard({ post }: PostCardProps) {
       role: foundMockAuthor.role,
       profile: { profilePictureUrl: foundMockAuthor.profile.profilePictureUrl },
     };
-  } else if (loggedInUser && loggedInUser.id === post.authorId) {
-    // Post is by the current logged-in user who isn't in mockUsers
+  } else if (loggedInUser && loggedInUser.id === currentPost.authorId) {
     authorForDisplay = {
       id: loggedInUser.id,
       name: loggedInUser.name,
@@ -59,16 +69,15 @@ export function PostCard({ post }: PostCardProps) {
       profile: { profilePictureUrl: loggedInUser.profile.profilePictureUrl },
     };
   } else {
-    // Fallback for truly unknown authors (e.g. another Firebase user not in mocks)
     authorForDisplay = {
-      id: post.authorId,
+      id: currentPost.authorId,
       name: "Nexus User",
-      role: "Member", // Generic role
+      role: "Member", 
       profile: { profilePictureUrl: `https://placehold.co/40x40.png?text=N` },
     };
   }
   
-  const userHasLiked = loggedInUser ? post.likes.includes(loggedInUser.id) : false;
+  const userHasLiked = loggedInUser ? currentPost.likes.includes(loggedInUser.id) : false;
 
   const handleLike = () => {
     if (!loggedInUser) {
@@ -76,8 +85,12 @@ export function PostCard({ post }: PostCardProps) {
       return;
     }
     startTransition(async () => {
-      await likePost(post.id, loggedInUser.id);
-      // Optimistic update can be handled here, or rely on revalidation
+      const result = await likePost(currentPost.id, loggedInUser.id);
+      if (result.success && result.updatedPost) {
+        setCurrentPost(result.updatedPost);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Failed to update like." });
+      }
     });
   };
 
@@ -87,16 +100,38 @@ export function PostCard({ post }: PostCardProps) {
       return;
     }
     startTransition(async () => {
-      const result = await addComment(post.id, loggedInUser.id, commentText);
-      if (result.success) {
+      const result = await addComment(currentPost.id, loggedInUser.id, commentText);
+      if (result.success && result.updatedPost) {
+        setCurrentPost(result.updatedPost);
         setCommentText("");
+        setShowComments(true); // Ensure comments section is open
         toast({ title: "Success", description: "Comment added." });
-        // Optionally: setShowComments(true) if not already.
       } else {
         toast({ variant: "destructive", title: "Error", description: "Failed to add comment." });
       }
     });
   };
+
+  const handleShareSend = async (connection: User) => {
+    if (!loggedInUser) return;
+    const chatResult = await createMockChat([loggedInUser.id, connection.id]);
+    if (chatResult.success && chatResult.chatId) {
+      const messageContent = `Check out this post by ${authorForDisplay.name}:\n"${currentPost.content.substring(0, 70)}${currentPost.content.length > 70 ? '...' : ''}"\n\nView post: /posts/${currentPost.id}`; // Mock link
+      const sendResult = await sendMessage(chatResult.chatId, loggedInUser.id, messageContent);
+      if (sendResult.success) {
+        toast({ title: "Shared!", description: `Post sent to ${connection.name}.` });
+        setIsShareDialogOpen(false);
+        router.push(`/messages?chatWith=${connection.id}&chatId=${chatResult.chatId}`);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Could not send message." });
+      }
+    } else {
+      toast({ variant: "destructive", title: "Error", description: "Could not initiate chat." });
+    }
+  };
+  
+  const userConnections = loggedInUser ? mockUsers.filter(u => loggedInUser.connections.includes(u.id) && u.id !== loggedInUser.id) : [];
+
 
   return (
     <Card className="mb-6 shadow-lg">
@@ -111,7 +146,7 @@ export function PostCard({ post }: PostCardProps) {
               <div>
                 <p className="font-semibold hover:underline">{authorForDisplay.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {authorForDisplay.role} &bull; {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                  {authorForDisplay.role} &bull; {formatDistanceToNow(new Date(currentPost.createdAt), { addSuffix: true })}
                 </p>
               </div>
             </a>
@@ -123,23 +158,23 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
-        {post.imageUrl && (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{currentPost.content}</p>
+        {currentPost.imageUrl && (
           <div className="mt-4 relative aspect-video w-full overflow-hidden rounded-lg border">
             <Image 
-              src={post.imageUrl} 
+              src={currentPost.imageUrl} 
               alt="Post image" 
               layout="fill" 
               objectFit="cover" 
-              data-ai-hint={post.dataAiHint || "social media content"}/>
+              data-ai-hint={currentPost.dataAiHint || "social media content"}/>
           </div>
         )}
       </CardContent>
       <CardFooter className="flex flex-col items-start p-4 pt-2">
         <div className="flex w-full justify-between items-center text-xs text-muted-foreground mb-2">
-          <span>{post.likes.length > 0 ? `${post.likes.length} like${post.likes.length > 1 ? 's' : ''}` : ''}</span>
+          <span>{currentPost.likes.length > 0 ? `${currentPost.likes.length} like${currentPost.likes.length > 1 ? 's' : ''}` : '0 likes'}</span>
           <button onClick={() => setShowComments(!showComments)} className="hover:underline">
-            {post.comments.length > 0 ? `${post.comments.length} comment${post.comments.length > 1 ? 's' : ''}` : 'No comments'}
+            {currentPost.comments.length > 0 ? `${currentPost.comments.length} comment${currentPost.comments.length > 1 ? 's' : ''}` : '0 comments'}
           </button>
         </div>
         <div className="w-full border-t pt-2 grid grid-cols-3 gap-1">
@@ -149,14 +184,50 @@ export function PostCard({ post }: PostCardProps) {
           <Button variant="ghost" onClick={() => setShowComments(!showComments)} className="w-full">
             <MessageCircle className="mr-2 h-4 w-4" /> Comment
           </Button>
-          <Button variant="ghost" className="w-full">
-            <Share2 className="mr-2 h-4 w-4" /> Share
-          </Button>
+          <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="w-full">
+                <Share2 className="mr-2 h-4 w-4" /> Share
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Share Post</DialogTitle>
+                <DialogDescription>Send this post to your connections.</DialogDescription>
+              </DialogHeader>
+              {userConnections.length > 0 ? (
+                <ScrollArea className="h-[200px] w-full rounded-md border p-2">
+                  <div className="space-y-2">
+                  {userConnections.map(connection => (
+                    <div key={connection.id} className="flex items-center justify-between p-2 hover:bg-accent/50 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={connection.profile.profilePictureUrl || `https://placehold.co/32x32.png?text=${getInitials(connection.name)}`} alt={connection.name} data-ai-hint="profile avatar small"/>
+                          <AvatarFallback>{getInitials(connection.name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium">{connection.name}</span>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => handleShareSend(connection)} disabled={isPending}>
+                        <SendIcon className="mr-2 h-3 w-3"/> Send
+                      </Button>
+                    </div>
+                  ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">You have no connections to share with yet.</p>
+              )}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="ghost">Cancel</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
         {showComments && (
           <div className="w-full mt-4 space-y-3">
-            {post.comments.map(comment => {
-              // Logic for comment author display (similar to post author)
+            {currentPost.comments.map(comment => {
               let commentAuthorDisplay: { name: string; profilePictureUrl?: string; }
               const foundCommentAuthor = mockUsers.find(u => u.id === comment.authorId);
               if (foundCommentAuthor) {
@@ -209,4 +280,3 @@ export function PostCard({ post }: PostCardProps) {
     </Card>
   );
 }
-

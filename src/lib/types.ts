@@ -85,6 +85,7 @@ export interface Message {
 export interface Chat {
   id: string;
   participantIds: string[]; // For 1-on-1 or group chats
+  messages: Message[]; // Full message history
   lastMessage?: Message;
   isGroupChat: boolean;
   groupName?: string; // if isGroupChat

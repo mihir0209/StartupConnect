@@ -1,10 +1,10 @@
 
 "use client";
 
-import type { User, ProfileData, BaseProfile, FounderProfile, InvestorProfile, ExpertProfile, UserRole as AppUserRole, Community } from '@/lib/types';
+import type { User, ProfileData, BaseProfile, FounderProfile, InvestorProfile, ExpertProfile, UserRole as AppUserRole, Community, Chat, Message } from '@/lib/types';
 import { UserRole, INDUSTRIES, FUNDING_STAGES, EXPERTISE_AREAS } from '@/lib/constants';
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { mockUsers, mockCommunities, mockPosts, mockChats } from '@/lib/mockData'; // Using mockUsers directly
+import { mockUsers, mockCommunities, mockPosts, mockChats } from '@/lib/mockData'; 
 
 interface AuthContextType {
   user: User | null;
@@ -20,7 +20,8 @@ interface AuthContextType {
   removeConnection: (connectionId: string) => Promise<{ success: boolean; error?: string }>;
   joinCommunity: (communityId: string) => Promise<{ success: boolean; error?: string }>;
   leaveCommunity: (communityId: string) => Promise<{ success: boolean; error?: string }>;
-  createMockChat: (participantIds: string[]) => Promise<{ success: boolean; chatId?: string; error?: string }>;
+  createMockChat: (participantIds: string[]) => Promise<{ success: boolean; chatId?: string; error?: string, chat?: Chat }>;
+  sendMessage: (chatId: string, senderId: string, content: string) => Promise<{ success: boolean; newMessage?: Message; error?: string }>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,14 +36,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedUserJson = localStorage.getItem('nexus-mock-user');
     if (storedUserJson) {
       try {
-        const storedUser = JSON.parse(storedUserJson);
-        // Find the user in the current mockUsers array to ensure data consistency
-        // especially if mockUsers has been reset/updated in code.
+        const storedUser = JSON.parse(storedUserJson) as User;
         const liveMockUser = mockUsers.find(u => u.id === storedUser.id);
         if (liveMockUser) {
-          setUser(liveMockUser);
+          // Ensure the live mock user's connections/requests are up-to-date with potentially modified mockUsers array
+          const fullyUpdatedUser = {
+            ...liveMockUser,
+            connections: liveMockUser.connections || [],
+            connectionRequestsSent: liveMockUser.connectionRequestsSent || [],
+            connectionRequestsReceived: liveMockUser.connectionRequestsReceived || [],
+          };
+          setUser(fullyUpdatedUser);
         } else {
-          // If user from localStorage isn't in current mockUsers, they might be stale
           localStorage.removeItem('nexus-mock-user');
         }
       } catch (e) {
@@ -64,21 +69,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
+    // Simulate login with a default mock user or the first one
     let mockGoogleUser = mockUsers.find(u => u.email === 'founder@example.com') || mockUsers[0];
     
-    if (!mockGoogleUser) {
-      mockGoogleUser = {
+    if (!mockGoogleUser) { // Fallback if mockUsers is empty for some reason
+       mockGoogleUser = {
         id: generateMockId(),
-        email: 'googleuser@example.com',
-        name: 'Google User',
+        email: 'defaultuser@example.com',
+        name: 'Default User',
         role: UserRole.Founder,
-        profile: {
-          startupName: 'Google Startup',
-          industry: INDUSTRIES[0],
-          fundingStage: FUNDING_STAGES[0],
-          bio: 'Logged in via Google!',
-          language: 'en',
-        } as FounderProfile,
+        profile: { startupName: 'My Startup', industry: INDUSTRIES[0], fundingStage: FUNDING_STAGES[0] } as FounderProfile,
         connections: [], connectionRequestsSent: [], connectionRequestsReceived: [],
         createdAt: new Date().toISOString(),
       };
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithEmailPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    const foundUser = mockUsers.find(u => u.email === email);
+    const foundUser = mockUsers.find(u => u.email === email); // Password check omitted for mock
     if (foundUser) {
       updateUserStateAndStorage(foundUser);
       setIsLoading(false);
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ...(role === UserRole.AngelInvestor && profileData as Partial<InvestorProfile>),
         ...(role === UserRole.VC && profileData as Partial<InvestorProfile>),
         ...(role === UserRole.IndustryExpert && profileData as Partial<ExpertProfile>),
-      } as ProfileData,
+      } as ProfileData, // Type assertion
       connections: [], connectionRequestsSent: [], connectionRequestsReceived: [],
       createdAt: new Date().toISOString(),
     };
@@ -144,16 +144,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return { success: false, error: "No user logged in to update." };
     
     const userIndex = mockUsers.findIndex(u => u.id === user.id);
-    if (userIndex === -1) return { success: false, error: "User not found in mock data."};
+    if (userIndex === -1) {
+      // This might happen if mockUsers array was somehow reset but user state wasn't
+      // For mock, let's assume user should exist if context.user is set
+      // Could also create a new entry if not found and update, but let's keep it simple
+      return { success: false, error: "User not found in mock data for update."};
+    }
 
-    const updatedUser = { ...mockUsers[userIndex], ...updatedUserData,
-      profile: { ...(mockUsers[userIndex].profile as ProfileData), ...(updatedUserData.profile as Partial<ProfileData>)}
+    const updatedUser = { 
+      ...mockUsers[userIndex], 
+      ...updatedUserData,
+      // Deep merge profile if it's part of updatedUserData
+      profile: updatedUserData.profile 
+                 ? { ...(mockUsers[userIndex].profile as ProfileData), ...(updatedUserData.profile as Partial<ProfileData>)} 
+                 : mockUsers[userIndex].profile
     };
     
     mockUsers[userIndex] = updatedUser;
     updateUserStateAndStorage(updatedUser);
     return { success: true };
   };
+
 
   // Connection Management (Mock)
   const sendConnectionRequest = async (targetUserId: string): Promise<{ success: boolean; error?: string }> => {
@@ -162,17 +173,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const targetUserIndex = mockUsers.findIndex(u => u.id === targetUserId);
 
     if (currentUserIndex === -1 || targetUserIndex === -1) return { success: false, error: "User not found." };
-
-    // Update current user: add to sent, remove from received (if any)
-    mockUsers[currentUserIndex].connectionRequestsSent = [...new Set([...mockUsers[currentUserIndex].connectionRequestsSent, targetUserId])];
-    mockUsers[currentUserIndex].connectionRequestsReceived = mockUsers[currentUserIndex].connectionRequestsReceived.filter(id => id !== targetUserId);
-    mockUsers[currentUserIndex].connections = mockUsers[currentUserIndex].connections.filter(id => id !== targetUserId);
-
-
-    // Update target user: add to received
-    mockUsers[targetUserIndex].connectionRequestsReceived = [...new Set([...mockUsers[targetUserIndex].connectionRequestsReceived, user.id])];
     
-    updateUserStateAndStorage({ ...mockUsers[currentUserIndex] }); // Triggers re-render for current user
+    const currentUserData = mockUsers[currentUserIndex];
+    currentUserData.connectionRequestsSent = [...new Set([...(currentUserData.connectionRequestsSent || []), targetUserId])];
+    currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== targetUserId); // In case of mutual requests
+    currentUserData.connections = (currentUserData.connections || []).filter(id => id !== targetUserId);
+
+
+    const targetUserData = mockUsers[targetUserIndex];
+    targetUserData.connectionRequestsReceived = [...new Set([...(targetUserData.connectionRequestsReceived || []), user.id])];
+    
+    updateUserStateAndStorage({ ...currentUserData }); 
     return { success: true };
   };
 
@@ -183,15 +194,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (currentUserIndex === -1 || requesterUserIndex === -1) return { success: false, error: "User not found." };
 
-    // Update current user: add to connections, remove from received
-    mockUsers[currentUserIndex].connections = [...new Set([...mockUsers[currentUserIndex].connections, requesterId])];
-    mockUsers[currentUserIndex].connectionRequestsReceived = mockUsers[currentUserIndex].connectionRequestsReceived.filter(id => id !== requesterId);
+    const currentUserData = mockUsers[currentUserIndex];
+    currentUserData.connections = [...new Set([...(currentUserData.connections || []), requesterId])];
+    currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== requesterId);
 
-    // Update requester user: add to connections, remove from sent
-    mockUsers[requesterUserIndex].connections = [...new Set([...mockUsers[requesterUserIndex].connections, user.id])];
-    mockUsers[requesterUserIndex].connectionRequestsSent = mockUsers[requesterUserIndex].connectionRequestsSent.filter(id => id !== user.id);
+    const requesterUserData = mockUsers[requesterUserIndex];
+    requesterUserData.connections = [...new Set([...(requesterUserData.connections || []), user.id])];
+    requesterUserData.connectionRequestsSent = (requesterUserData.connectionRequestsSent || []).filter(id => id !== user.id);
     
-    updateUserStateAndStorage({ ...mockUsers[currentUserIndex] });
+    updateUserStateAndStorage({ ...currentUserData });
     return { success: true };
   };
 
@@ -200,14 +211,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const currentUserIndex = mockUsers.findIndex(u => u.id === user.id);
      if (currentUserIndex === -1) return { success: false, error: "User not found." };
 
-    mockUsers[currentUserIndex].connectionRequestsReceived = mockUsers[currentUserIndex].connectionRequestsReceived.filter(id => id !== requesterId);
-    // Also remove from target user's sent requests if needed, though less critical for this user's view
+    const currentUserData = mockUsers[currentUserIndex];
+    currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== requesterId);
+    
     const requesterUserIndex = mockUsers.findIndex(u => u.id === requesterId);
     if (requesterUserIndex !== -1) {
-        mockUsers[requesterUserIndex].connectionRequestsSent = mockUsers[requesterUserIndex].connectionRequestsSent.filter(id => id !== user.id);
+        mockUsers[requesterUserIndex].connectionRequestsSent = (mockUsers[requesterUserIndex].connectionRequestsSent || []).filter(id => id !== user.id);
     }
 
-    updateUserStateAndStorage({ ...mockUsers[currentUserIndex] });
+    updateUserStateAndStorage({ ...currentUserData });
     return { success: true };
   };
 
@@ -218,10 +230,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (currentUserIndex === -1 || connectionUserIndex === -1) return { success: false, error: "User not found." };
 
-    mockUsers[currentUserIndex].connections = mockUsers[currentUserIndex].connections.filter(id => id !== connectionId);
-    mockUsers[connectionUserIndex].connections = mockUsers[connectionUserIndex].connections.filter(id => id !== user.id);
+    const currentUserData = mockUsers[currentUserIndex];
+    currentUserData.connections = (currentUserData.connections || []).filter(id => id !== connectionId);
 
-    updateUserStateAndStorage({ ...mockUsers[currentUserIndex] });
+    const connectionUserData = mockUsers[connectionUserIndex];
+    connectionUserData.connections = (connectionUserData.connections || []).filter(id => id !== user.id);
+
+    updateUserStateAndStorage({ ...currentUserData });
     return { success: true };
   };
 
@@ -232,8 +247,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (communityIndex === -1) return { success: false, error: "Community not found." };
 
     mockCommunities[communityIndex].members = [...new Set([...mockCommunities[communityIndex].members, user.id])];
-    // No need to call updateUserStateAndStorage unless user object itself needs update.
-    // Page displaying community will need to re-fetch or re-evaluate mockCommunities.
     return { success: true };
   };
 
@@ -246,32 +259,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
-  const createMockChat = async (participantIds: string[]): Promise<{ success: boolean; chatId?: string; error?: string }> => {
+  const createMockChat = async (participantIds: string[]): Promise<{ success: boolean; chatId?: string; error?: string, chat?: Chat }> => {
     if (!user || !participantIds.includes(user.id)) return { success: false, error: "User not authenticated or not part of participants." };
 
-    // Sort participant IDs to create a consistent chat ID for 1-on-1 chats
     const sortedParticipantIds = [...participantIds].sort();
-    const potentialChatId = sortedParticipantIds.join('_');
-
-    const existingChat = mockChats.find(chat => {
-        if (chat.isGroupChat) return false; // Simple check for 1-on-1
-        return chat.participantIds.length === sortedParticipantIds.length && 
-               chat.participantIds.every(id => sortedParticipantIds.includes(id));
+    
+    let existingChat = mockChats.find(chat => {
+        if (chat.isGroupChat && sortedParticipantIds.length > 2) { // Group chat check
+             return chat.participantIds.length === sortedParticipantIds.length && 
+                    chat.participantIds.every(id => sortedParticipantIds.includes(id));
+        } else if (!chat.isGroupChat && sortedParticipantIds.length === 2) { // 1-on-1 chat check
+            return chat.participantIds.length === sortedParticipantIds.length && 
+                   chat.participantIds.every(id => sortedParticipantIds.includes(id));
+        }
+        return false;
     });
 
     if (existingChat) {
-        return { success: true, chatId: existingChat.id };
+        return { success: true, chatId: existingChat.id, chat: existingChat };
     }
 
     const newChatId = `chat_${generateMockId()}`;
-    const newChat = {
+    const newChat: Chat = {
       id: newChatId,
       participantIds: sortedParticipantIds,
+      messages: [], // Initialize with empty messages
       isGroupChat: participantIds.length > 2,
       // lastMessage: undefined, // No message initially
+      ...(participantIds.length > 2 && { groupName: 'New Group' }) // Basic group name
     };
-    mockChats.push(newChat);
-    return { success: true, chatId: newChatId };
+    mockChats.unshift(newChat); // Add to beginning to appear first in lists
+    return { success: true, chatId: newChatId, chat: newChat };
+  };
+
+  const sendMessage = async (chatId: string, senderId: string, content: string): Promise<{ success: boolean; newMessage?: Message; error?: string }> => {
+    const chatIndex = mockChats.findIndex(c => c.id === chatId);
+    if (chatIndex === -1) {
+      return { success: false, error: "Chat not found." };
+    }
+
+    const newMessage: Message = {
+      id: `msg_${generateMockId()}`,
+      chatId,
+      senderId,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+
+    mockChats[chatIndex].messages.push(newMessage);
+    mockChats[chatIndex].lastMessage = newMessage;
+
+    // Move this chat to the top of the mockChats array for recent activity
+    const updatedChat = mockChats.splice(chatIndex, 1)[0];
+    mockChats.unshift(updatedChat);
+    
+    // No need to call updateUserStateAndStorage unless user object itself needs update.
+    // The MessagesPage will re-render due to navigation or other state changes.
+    return { success: true, newMessage };
   };
 
 
@@ -281,7 +325,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       loginWithGoogle, loginWithEmailPassword, signupWithEmailPassword, logout, updateUserInContext,
       sendConnectionRequest, acceptConnectionRequest, declineConnectionRequest, removeConnection,
       joinCommunity, leaveCommunity,
-      createMockChat
+      createMockChat, sendMessage
     }}>
       {children}
     </AuthContext.Provider>
