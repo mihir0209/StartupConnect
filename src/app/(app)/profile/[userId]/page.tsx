@@ -11,26 +11,29 @@ import { PostCard } from "@/components/feed/PostCard";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react"; // Added 'use'
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
 
-export default function UserProfilePage({ params }: { params: { userId: string } }) {
+export default function UserProfilePage({ params: paramsPromise }: { params: { userId: string } }) {
+  const params = use(paramsPromise); // Unwrap params using React.use()
+  const { userId } = params;
+
   const { user: loggedInUser, sendConnectionRequest, removeConnection, acceptConnectionRequest, declineConnectionRequest, createMockChat } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   // Local state for the viewed user's profile, to allow refresh if mockData is updated elsewhere.
   // For a real backend, this would be fetched data.
-  const [viewedUser, setViewedUser] = useState<User | null | undefined>(() => mockUsers.find(u => u.id === params.userId));
+  const [viewedUser, setViewedUser] = useState<User | null | undefined>(() => mockUsers.find(u => u.id === userId));
   
   // Re-fetch or update viewedUser if params.userId changes or loggedInUser's connections change
    useEffect(() => {
-    setViewedUser(mockUsers.find(u => u.id === params.userId));
-  }, [params.userId, loggedInUser]); // Re-evaluate if loggedInUser's state changes (e.g., connections)
+    setViewedUser(mockUsers.find(u => u.id === userId));
+  }, [userId, loggedInUser]); // Re-evaluate if loggedInUser's state changes (e.g., connections)
 
-  const userPosts = mockPosts.filter(p => p.authorId === params.userId);
+  const userPosts = mockPosts.filter(p => p.authorId === userId);
 
   if (viewedUser === undefined) { // Still loading or initial find
     return <div className="text-center py-10">Loading profile...</div>;
@@ -233,3 +236,6 @@ export default function UserProfilePage({ params }: { params: { userId: string }
     </div>
   );
 }
+
+
+    
