@@ -1,13 +1,13 @@
 
 "use client";
 
-import type { User, ProfileData, BaseProfile, FounderProfile, UserRole as AppUserRole } from '@/lib/types'; // Adjusted imports
-import { UserRole } from '@/lib/constants'; // For default role
+import type { User, ProfileData, BaseProfile, FounderProfile, UserRole as AppUserRole } from '@/lib/types';
+import { UserRole } from '@/lib/constants';
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { auth, googleProvider, db } from '@/lib/firebase';
+import { auth, googleProvider } from '@/lib/firebase'; // db removed from here
+import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-
+// Firestore imports (doc, getDoc, setDoc, serverTimestamp) are removed
 
 interface AuthContextType {
   user: User | null;
@@ -16,7 +16,7 @@ interface AuthContextType {
   loginWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signupWithEmailPassword: (email: string, password: string, name: string, role: AppUserRole, profileData: Partial<ProfileData>) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  updateUserInContext: (updatedUserData: Partial<User>) => void;
+  updateUserInContext: (updatedUserData: Partial<User>) => Promise<void>; // Made async for Supabase
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,54 +29,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
+        // Fetch user profile from Supabase
+        const { data: userProfile, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', firebaseUser.uid)
+          .single();
 
-        if (userDocSnap.exists()) {
-          setUser(userDocSnap.data() as User);
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: Row not found
+          console.error("Error fetching user profile from Supabase:", fetchError);
+          setUser(null);
+        } else if (userProfile) {
+          setUser(userProfile as User);
         } else {
-          // This case is typically for users signing up (Google or new Email/Pass)
-          // If it's a Google sign-in and no doc, we create one.
-          // If it's an email/pass signup, the doc should be created by signupWithEmailPassword.
-          // This block primarily ensures Google Sign-In users get a Firestore doc if they're new.
-          if (firebaseUser.providerData.some(p => p.providerId === 'google.com')) {
-            const newUserProfile: FounderProfile = { 
-              startupName: '', 
-              industry: '', 
-              fundingStage: '', 
-              bio: `Joined Nexus Startup!`,
-              location: '',
-              website: '',
-              profilePictureUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firebaseUser.displayName || 'U')?.[0]}`,
-              language: 'en',
-            };
-            
-            const newAppUser: User = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || 'New User',
-              role: UserRole.Founder, 
-              profile: newUserProfile,
-              connections: [],
-              connectionRequestsSent: [],
-              connectionRequestsReceived: [],
-              createdAt: new Date().toISOString(), 
-            };
-            try {
-              await setDoc(userDocRef, { ...newAppUser, createdAt: serverTimestamp() }); 
-              setUser(newAppUser);
-            } catch (error) {
-              console.error("Error creating new user profile in Firestore for Google user:", error);
-              setUser(null); 
-            }
-          } else {
-            // For email/password users, if they are authenticated but no doc exists,
-            // it implies an issue or an incomplete signup. For now, we log them out.
-            // A more robust solution might redirect them to a profile completion step
-            // if their auth record exists but Firestore doc doesn't.
-            console.warn("User authenticated but no Firestore document found. Logging out.");
-            await signOut(auth);
+          // User exists in Firebase Auth but not in Supabase DB (e.g., first-time Google sign-in)
+          // Create a new user profile in Supabase
+          const defaultProfileDetails: FounderProfile = { // Default to Founder, can be changed in profile settings
+            startupName: '',
+            industry: '',
+            fundingStage: '',
+            bio: `Joined Nexus Startup!`,
+            location: '',
+            website: '',
+            profilePictureUrl: firebaseUser.photoURL || `https://placehold.co/100x100.png?text=${(firebaseUser.displayName || 'U')?.[0]}`,
+            language: 'en',
+          };
+
+          const newAppUser: Omit<User, 'createdAt'> & { created_at?: string } = { // Omit createdAt, Supabase handles it
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || 'New User',
+            role: UserRole.Founder, // Default role
+            profile: defaultProfileDetails,
+            connections: [],
+            connectionRequestsSent: [],
+            connectionRequestsReceived: [],
+          };
+
+          const { data: createdUser, error: createError } = await supabase
+            .from('users')
+            .insert([newAppUser])
+            .select()
+            .single();
+
+          if (createError) {
+            console.error("Error creating new user profile in Supabase:", createError);
             setUser(null);
+          } else {
+            setUser(createdUser as User);
           }
         }
       } else {
@@ -91,11 +91,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged will handle setting the user
+      // onAuthStateChanged will handle fetching/creating user in Supabase
     } catch (error) {
       console.error("Error during Google sign-in:", error);
     } finally {
-      setIsLoading(false);
+      // setIsLoading(false); // onAuthStateChanged will set loading to false
     }
   };
 
@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error during email/password sign-in:", error);
       return { success: false, error: error.message };
     } finally {
-      setIsLoading(false);
+      // setIsLoading(false); // onAuthStateChanged will set loading to false
     }
   };
 
@@ -127,15 +127,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       await updateProfile(firebaseUser, { displayName: name });
 
-      const userDocRef = doc(db, "users", firebaseUser.uid);
       const newUserProfile: ProfileData = {
-        ...(profileData as BaseProfile), // Cast to BaseProfile for common fields
+        ...(profileData as BaseProfile),
         ...(role === UserRole.Founder && profileData as FounderProfile),
-        // Add specific profile types if needed
         profilePictureUrl: firebaseUser.photoURL || profileData.profilePictureUrl || `https://placehold.co/100x100.png?text=${name?.[0] || 'U'}`,
+        language: profileData.language || 'en',
+        bio: profileData.bio || '',
+        location: profileData.location || '',
+        website: profileData.website || '',
       };
-
-      const newAppUser: User = {
+      
+      const newAppUserForSupabase: Omit<User, 'createdAt'| 'connections' | 'connectionRequestsSent' | 'connectionRequestsReceived'> & { created_at?: string, connections?: string[], connectionRequestsSent?: string[], connectionRequestsReceived?: string[] } = {
         id: firebaseUser.uid,
         email: firebaseUser.email || '',
         name: name,
@@ -144,17 +146,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         connections: [],
         connectionRequestsSent: [],
         connectionRequestsReceived: [],
-        createdAt: new Date().toISOString(),
       };
 
-      await setDoc(userDocRef, { ...newAppUser, createdAt: serverTimestamp() });
-      // onAuthStateChanged will handle setting the user state
+
+      const { error: createError } = await supabase
+        .from('users')
+        .insert([newAppUserForSupabase]);
+
+      if (createError) {
+        console.error("Error creating user profile in Supabase during signup:", createError);
+        // Optionally: delete the Firebase user if Supabase profile creation fails
+        // await firebaseUser.delete();
+        return { success: false, error: createError.message };
+      }
+      // onAuthStateChanged will handle setting the user state after Supabase record is created (or should!)
       return { success: true };
     } catch (error: any) {
       console.error("Error during email/password sign-up:", error);
       return { success: false, error: error.message };
     } finally {
-      setIsLoading(false);
+      // setIsLoading(false); // onAuthStateChanged will set loading to false
     }
   };
 
@@ -162,39 +173,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await signOut(auth);
-      setUser(null); 
+      setUser(null);
     } catch (error) {
         console.error("Error during sign out: ", error);
     } finally {
         setIsLoading(false);
     }
   };
-  
+
   const updateUserInContext = async (updatedUserData: Partial<User>) => {
-    if (user) {
-      const userDocRef = doc(db, "users", user.id);
-      try {
-        const updatePayload: Partial<User> = {};
-        if (updatedUserData.name) updatePayload.name = updatedUserData.name;
-        if (updatedUserData.role) updatePayload.role = updatedUserData.role;
-        if (updatedUserData.profile) updatePayload.profile = updatedUserData.profile;
-        
-        await setDoc(userDocRef, updatePayload, { merge: true });
-        setUser(prevUser => ({...prevUser, ...updatedUserData} as User));
-      } catch (error) {
-        console.error("Error updating user profile in Firestore:", error);
+    if (user && user.id) {
+      const updatePayload: Partial<Omit<User, 'id' | 'createdAt' | 'email'>> = {};
+      if (updatedUserData.name) updatePayload.name = updatedUserData.name;
+      if (updatedUserData.role) updatePayload.role = updatedUserData.role;
+      if (updatedUserData.profile) updatePayload.profile = updatedUserData.profile;
+      // Add other updatable fields as needed, e.g., connections
+      if (updatedUserData.connections) updatePayload.connections = updatedUserData.connections;
+      if (updatedUserData.connectionRequestsSent) updatePayload.connectionRequestsSent = updatedUserData.connectionRequestsSent;
+      if (updatedUserData.connectionRequestsReceived) updatePayload.connectionRequestsReceived = updatedUserData.connectionRequestsReceived;
+
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(updatePayload)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error updating user profile in Supabase:", error);
+      } else if (data) {
+        setUser(data as User);
       }
     }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isLoading, 
-      loginWithGoogle, 
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      loginWithGoogle,
       loginWithEmailPassword,
       signupWithEmailPassword,
-      logout, 
+      logout,
       updateUserInContext,
     }}>
       {children}

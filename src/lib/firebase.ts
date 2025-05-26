@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+// getFirestore is removed
 
 // IMPORTANT: Replace these with your actual Firebase project configuration
 const firebaseConfig = {
@@ -15,7 +15,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-const db = getFirestore(app);
+// db (Firestore instance) is removed
 const googleProvider = new GoogleAuthProvider();
 
 // Optional: Set persistence to local to keep users signed in across browser sessions
@@ -25,4 +25,4 @@ setPersistence(auth, browserLocalPersistence)
   });
 
 
-export { app, auth, db, googleProvider };
+export { app, auth, googleProvider }; // db removed from exports
