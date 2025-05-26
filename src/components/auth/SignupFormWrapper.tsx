@@ -6,7 +6,6 @@ import { UserRole } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-// import { signupUser } from "@/lib/actions/auth.actions"; // Server action no longer primary for this
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Logo } from "@/components/shared/Logo";
 import { SignupStep1Credentials } from "./SignupStep1Credentials";
@@ -19,7 +18,7 @@ import Link from "next/link";
 
 export function SignupFormWrapper() {
   const router = useRouter();
-  const { signupWithEmailPassword, user, isLoading: authLoading } = useAuth();
+  const { signupWithEmailPassword: contextSignup, user, isLoading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState<SignupStep>(1);
   const [formData, setFormData] = useState<SignupFormData>({});
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +59,8 @@ export function SignupFormWrapper() {
         return;
     }
 
-    const result = await signupWithEmailPassword(
+    // Use the signup method from AuthContext
+    const result = await contextSignup(
       finalData.email,
       finalData.password,
       finalData.name,
@@ -68,9 +68,9 @@ export function SignupFormWrapper() {
       finalData.profileData
     );
 
-    if (result.success) {
-      // User state will be handled by onAuthStateChanged, redirecting via useEffect
-      router.push('/home'); 
+    if (result.success && result.user) {
+      // AuthContext will set the user, useEffect will redirect
+      // router.push('/home'); // Handled by useEffect
     } else {
       setError(result.error || "An unknown error occurred during signup.");
     }
@@ -85,7 +85,7 @@ export function SignupFormWrapper() {
     3: "Complete Your Profile"
   };
 
-  if (authLoading && !user) { // Show loader if auth is processing and no user yet (e.g. after signup submission)
+  if (authLoading && !user) { 
     return (
         <div className="flex h-screen items-center justify-center bg-background p-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -106,7 +106,7 @@ export function SignupFormWrapper() {
           <CardDescription>
             {currentStep === 1 && "Let's get started with your basic information."}
             {currentStep === 2 && "Choose the role that best describes you in the startup ecosystem."}
-            {currentStep === 3 && `Please provide details for your ${formData.role} profile.`}
+            {currentStep === 3 && `Please provide details for your ${formData.role || 'selected'} profile.`}
           </CardDescription>
         </CardHeader>
         <CardContent>

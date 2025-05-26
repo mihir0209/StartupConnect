@@ -1,10 +1,12 @@
+
 import { CreatePostForm } from "@/components/feed/CreatePostForm";
 import { PostCard } from "@/components/feed/PostCard";
-import { getPosts } from "@/lib/actions/post.actions"; // Server action to fetch posts
+import { getPosts } from "@/lib/actions/post.actions"; 
 import type { Post } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 
 export default async function HomePage() {
+  // getPosts will now return mock posts synchronously or after a mock delay
   const posts: Post[] = await getPosts();
 
   return (
@@ -29,4 +31,4 @@ export default async function HomePage() {
 }
 
 // Revalidate this page frequently or on demand when new posts are created
-export const revalidate = 60; // Revalidate every 60 seconds, or use on-demand revalidation
+// export const revalidate = 60; // No longer needed for mock data

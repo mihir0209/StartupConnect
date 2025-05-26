@@ -1,7 +1,11 @@
+
 import type { User, Post, Community, Chat, CofounderListing } from './types';
 import { UserRole, INDUSTRIES, FUNDING_STAGES, EXPERTISE_AREAS } from './constants';
+import type { FounderProfile, InvestorProfile, ExpertProfile } from './types';
 
-export const mockUsers: User[] = [
+
+// Export as 'let' to allow modification by actions for mock backend behavior
+export let mockUsers: User[] = [
   {
     id: 'user1',
     email: 'founder@example.com',
@@ -14,13 +18,13 @@ export const mockUsers: User[] = [
       bio: 'Building the future of SaaS.',
       location: 'Bangalore, India',
       profilePictureUrl: 'https://placehold.co/100x100.png',
-      dataAiHint: 'female programmer',
+      // dataAiHint: 'female programmer', // dataAiHint is usually on image elements
       language: 'en',
     } as FounderProfile,
     connections: ['user2', 'user3'],
     connectionRequestsSent: [],
     connectionRequestsReceived: [],
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), // 5 days ago
   },
   {
     id: 'user2',
@@ -33,13 +37,12 @@ export const mockUsers: User[] = [
       bio: 'Early-stage investor focused on impact.',
       location: 'Mumbai, India',
       profilePictureUrl: 'https://placehold.co/100x100.png',
-      dataAiHint: 'male investor',
       language: 'en',
     } as InvestorProfile,
     connections: ['user1'],
     connectionRequestsSent: [],
     connectionRequestsReceived: ['user4'],
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(), // 10 days ago
   },
   {
     id: 'user3',
@@ -52,13 +55,12 @@ export const mockUsers: User[] = [
       bio: 'Helping startups build great products.',
       location: 'Delhi, India',
       profilePictureUrl: 'https://placehold.co/100x100.png',
-      dataAiHint: 'female expert',
       language: 'en',
     } as ExpertProfile,
     connections: ['user1'],
     connectionRequestsSent: [],
     connectionRequestsReceived: [],
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), // 3 days ago
   },
    {
     id: 'user4',
@@ -72,17 +74,16 @@ export const mockUsers: User[] = [
       bio: 'Partner at Growth Ventures, looking for scalable tech companies.',
       location: 'Gurgaon, India',
       profilePictureUrl: 'https://placehold.co/100x100.png',
-      dataAiHint: 'male venture capitalist',
       language: 'en',
     } as InvestorProfile,
     connections: [],
     connectionRequestsSent: ['user2'],
     connectionRequestsReceived: [],
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15).toISOString(), // 15 days ago
   },
 ];
 
-export const mockPosts: Post[] = [
+export let mockPosts: Post[] = [
   {
     id: 'post1',
     authorId: 'user1',
@@ -113,7 +114,7 @@ export const mockPosts: Post[] = [
   },
 ];
 
-export const mockCommunities: Community[] = [
+export let mockCommunities: Community[] = [
   {
     id: 'comm1',
     name: 'B2B SaaS Founders India',
@@ -134,8 +135,5 @@ export const mockCommunities: Community[] = [
   },
 ];
 
-export const mockChats: Chat[] = [];
-export const mockCofounderListings: CofounderListing[] = [];
-
-// Helper types from types.ts for profile data
-import type { FounderProfile, InvestorProfile, ExpertProfile } from './types';
+export let mockChats: Chat[] = [];
+export let mockCofounderListings: CofounderListing[] = [];

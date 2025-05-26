@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useActionState } from "react"; // Added useActionState
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,18 +13,23 @@ import { Logo } from "@/components/shared/Logo";
 import { LogIn, Chrome, AlertCircle } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+// import { loginUser } from "@/lib/actions/auth.actions"; // No longer using server action directly here
 
 export function LoginForm() {
   const router = useRouter();
-  const { loginWithGoogle, loginWithEmailPassword, user, isLoading: authLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmailPassword: contextLoginEmail, user, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
 
   useEffect(() => {
     if (user && !authLoading) {
+      // const redirectPath = localStorage.getItem('redirectAfterLogin') || '/home';
+      // localStorage.removeItem('redirectAfterLogin');
       router.push('/home');
     }
   }, [user, authLoading, router]);
@@ -33,15 +38,27 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setIsEmailLoading(true);
-    const result = await loginWithEmailPassword(email, password);
+    const result = await contextLoginEmail(email, password); // Use context method
     if (!result.success) {
       setError(result.error || "Login failed. Please check your credentials.");
     }
     // On success, useEffect will redirect
     setIsEmailLoading(false);
   };
+  
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setIsGoogleLoading(true);
+    const result = await loginWithGoogle();
+    if (!result.success) {
+      setError(result.error || "Google Sign-In failed.");
+    }
+    // On success, useEffect will redirect
+    setIsGoogleLoading(false);
+  };
 
-  if (authLoading && !user) {
+
+  if (authLoading && !user) { // Simplified loading state
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -49,7 +66,9 @@ export function LoginForm() {
     );
   }
   
-  if (user && !authLoading) {
+  // If user becomes available (even if authLoading is briefly true), redirect is handled by useEffect
+  // This prevents showing the form briefly after successful login before redirection.
+   if (user) { 
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -57,6 +76,7 @@ export function LoginForm() {
       </div>
     );
   }
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -101,7 +121,7 @@ export function LoginForm() {
             <Button 
               type="submit"
               className="w-full" 
-              disabled={isEmailLoading || authLoading}
+              disabled={isEmailLoading || isGoogleLoading || authLoading}
             >
               {isEmailLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -124,12 +144,12 @@ export function LoginForm() {
           </div>
 
           <Button 
-            onClick={loginWithGoogle} 
+            onClick={handleGoogleLogin} 
             variant="outline"
             className="w-full" 
-            disabled={authLoading || isEmailLoading}
+            disabled={isGoogleLoading || isEmailLoading || authLoading}
           >
-            {authLoading && !isEmailLoading ? ( // Show loader if Google Sign-In is loading
+            {isGoogleLoading ? ( 
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Chrome className="mr-2 h-4 w-4" />

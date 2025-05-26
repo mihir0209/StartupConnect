@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserRole, INDUSTRIES, FUNDING_STAGES, EXPERTISE_AREAS, LANGUAGES } from "@/lib/constants";
-import type { User, ProfileData, ProfileField, FounderProfile, InvestorProfile, ExpertProfile } from "@/lib/types";
+import type { User, ProfileData, ProfileField, FounderProfile, InvestorProfile, ExpertProfile, BaseProfile } from "@/lib/types";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,35 +21,35 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 
 // Schemas for validation
-const BaseProfileSchema = z.object({
+const BaseProfileSchemaClient = z.object({
   name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email"), // Typically read-only after creation
+  email: z.string().email("Invalid email"), 
   bio: z.string().optional().default(""),
   location: z.string().optional().default(""),
   website: z.string().url().optional().or(z.literal('')).default(""),
   profilePictureUrl: z.string().url().optional().or(z.literal('')).default(""),
-  language: z.string().optional().default(""),
+  language: z.string().optional().default("en"),
 });
 
-const FounderProfileSchemaClient = BaseProfileSchema.extend({
-  startupName: z.string().min(1, "Startup name is required"),
-  industry: z.string().refine(val => INDUSTRIES.includes(val), "Industry is required"),
-  fundingStage: z.string().refine(val => FUNDING_STAGES.includes(val), "Funding stage is required"),
+const FounderProfileSchemaClient = BaseProfileSchemaClient.extend({
+  startupName: z.string().min(1, "Startup name is required").default(""),
+  industry: z.string().refine(val => INDUSTRIES.includes(val) || val === "", "Industry is required").default(INDUSTRIES[0]),
+  fundingStage: z.string().refine(val => FUNDING_STAGES.includes(val) || val === "", "Funding stage is required").default(FUNDING_STAGES[0]),
   traction: z.string().optional().default(""),
   needs: z.string().optional().default(""),
 });
 
-const InvestorProfileSchemaClient = BaseProfileSchema.extend({
-  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required"),
+const InvestorProfileSchemaClient = BaseProfileSchemaClient.extend({
+  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required").default([]),
   fundingRange: z.string().optional().default(""),
   portfolioHighlights: z.string().optional().default(""),
   fundSize: z.string().optional().default(""),
   preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage")).optional().default([]),
 });
 
-const ExpertProfileSchemaClient = BaseProfileSchema.extend({
-  areaOfExpertise: z.string().refine(val => EXPERTISE_AREAS.includes(val), "Area of expertise is required"),
-  yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative"),
+const ExpertProfileSchemaClient = BaseProfileSchemaClient.extend({
+  areaOfExpertise: z.string().refine(val => EXPERTISE_AREAS.includes(val) || val === "", "Area of expertise is required").default(EXPERTISE_AREAS[0]),
+  yearsOfExperience: z.coerce.number().min(0, "Years of experience cannot be negative").default(0),
   servicesOffered: z.string().optional().default(""),
 });
 
@@ -59,7 +59,7 @@ const getValidationSchema = (role: UserRole) => {
     case UserRole.AngelInvestor:
     case UserRole.VC: return InvestorProfileSchemaClient;
     case UserRole.IndustryExpert: return ExpertProfileSchemaClient;
-    default: return BaseProfileSchema; 
+    default: return BaseProfileSchemaClient; 
   }
 };
 
@@ -116,7 +116,7 @@ export default function ProfileSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const validationSchema = user ? getValidationSchema(user.role) : BaseProfileSchema; // Fallback to BaseProfileSchema
+  const validationSchema = user ? getValidationSchema(user.role) : BaseProfileSchemaClient; 
   const profileFields = user ? getProfileFields(user.role) : [];
   
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<any>({
@@ -126,17 +126,15 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     if (user) {
-      // Populate form with user data, including name and email at the base level
-      // Apply Zod defaults first, then overwrite with user's actual data
       const schemaDefaults = validationSchema.parse({});
       const defaultFormData = {
-        ...schemaDefaults, // Apply Zod defaults for optional fields
+        ...schemaDefaults, 
         name: user.name,
         email: user.email, 
         ...(user.profile as any),
-        // Ensure multiselects are arrays
         investmentFocus: (user.profile as InvestorProfile)?.investmentFocus || [],
         preferredFundingStages: (user.profile as InvestorProfile)?.preferredFundingStages || [],
+        language: (user.profile as BaseProfile)?.language || 'en',
       };
       reset(defaultFormData);
     }
@@ -147,18 +145,26 @@ export default function ProfileSettingsPage() {
 
     const { name: formName, email: formEmail, ...profileDataFromForm } = data;
     
-    const updatedUser: User = {
-      ...user,
-      name: formName, 
+    // Ensure profile data is clean of top-level name/email which are part of User, not ProfileData
+    const cleanProfileData = { ...profileDataFromForm };
+    delete cleanProfileData.name; 
+    delete cleanProfileData.email;
+
+    const updatedUserPartial: Partial<User> = {
+      name: formName,
       profile: {
         ...(user.profile as ProfileData), 
-        ...profileDataFromForm, 
+        ...cleanProfileData, 
       } as ProfileData,
     };
     
-    await updateUserInContext(updatedUser); 
-    toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
-    router.push(`/profile/${user.id}`);
+    const result = await updateUserInContext(updatedUserPartial); 
+    if (result.success) {
+      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      router.push(`/profile/${user.id}`);
+    } else {
+      toast({ variant: "destructive", title: "Update Failed", description: result.error || "Could not update profile." });
+    }
   };
 
   if (isLoading || !user) {
