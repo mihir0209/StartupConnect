@@ -11,24 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox import
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 
-
-interface SignupStep3ProfileProps {
-  onComplete: (data: Partial<SignupFormData>) => void;
-  onBack: () => void;
-  role: UserRole;
-  defaultValues?: Partial<SignupFormData>;
-  isSubmitting: boolean; // Added isSubmitting prop
-}
+// Moved schema definitions outside the component
 
 const BaseProfileSchema = z.object({
   bio: z.string().optional().default(""),
   location: z.string().optional().default(""),
   website: z.string().url().optional().or(z.literal('')).default(""),
   profilePictureUrl: z.string().url().optional().or(z.literal('')).default(""),
-  language: z.string().optional().default(""),
+  language: z.string().optional().default("en"), // Default to 'en'
 });
 
 const FounderProfileSchemaDef = BaseProfileSchema.extend({
@@ -40,11 +33,15 @@ const FounderProfileSchemaDef = BaseProfileSchema.extend({
 });
 
 const InvestorProfileSchemaDef = BaseProfileSchema.extend({
-  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry")).min(1, "At least one investment focus is required"),
+  investmentFocus: z.array(z.string().refine(val => INDUSTRIES.includes(val), "Invalid industry"))
+    .min(1, "At least one investment focus is required")
+    .default([]), // Add default for robust initialization
   fundingRange: z.string().optional().default(""),
   portfolioHighlights: z.string().optional().default(""),
   fundSize: z.string().optional().default(""),
-  preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage")).optional().default([]),
+  preferredFundingStages: z.array(z.string().refine(val => FUNDING_STAGES.includes(val), "Invalid funding stage"))
+    .optional()
+    .default([]),
 });
 
 const ExpertProfileSchemaDef = BaseProfileSchema.extend({
@@ -110,21 +107,73 @@ const getValidationSchema = (role: UserRole) => {
   }
 };
 
+interface SignupStep3ProfileProps {
+  onComplete: (data: Partial<SignupFormData>) => void;
+  onBack: () => void;
+  role: UserRole;
+  defaultValues?: Partial<SignupFormData>;
+  isSubmitting: boolean;
+}
 
 export function SignupStep3Profile({ onComplete, onBack, role, defaultValues, isSubmitting }: SignupStep3ProfileProps) {
   const profileFields = getProfileFields(role);
   const validationSchema = getValidationSchema(role);
   
-  const { control, handleSubmit, formState: { errors } } = useForm({ // Removed isSubmitting from here as it's passed via props
-    resolver: zodResolver(validationSchema),
-    defaultValues: {
-      // Initialize with schema defaults then override with any existing profileData
-      ...validationSchema.parse({}), // This applies Zod .default() values
-      ...(defaultValues?.profileData || {}),
-      // Ensure multiselects are arrays, Zod default([]) handles this if schema is correct
-      investmentFocus: (defaultValues?.profileData as InvestorProfile)?.investmentFocus || [],
-      preferredFundingStages: (defaultValues?.profileData as InvestorProfile)?.preferredFundingStages || [],
+  const initialProfileData = defaultValues?.profileData || {};
+
+  // Construct initial form values manually to avoid issues with validationSchema.parse({}) on complex required fields
+  const getInitialFormValues = () => {
+    const baseDefaults = BaseProfileSchema.parse({}); // Safe, as BaseProfileSchema has .default() for all fields
+
+    let roleSpecificDefaults: any = {};
+    if (role === UserRole.Founder) {
+      roleSpecificDefaults = {
+        startupName: "",
+        industry: INDUSTRIES[0],
+        fundingStage: FUNDING_STAGES[0],
+        traction: "",
+        needs: "",
+        ...baseDefaults // Add base defaults here for founder
+      };
+    } else if (role === UserRole.AngelInvestor || role === UserRole.VC) {
+      roleSpecificDefaults = {
+        investmentFocus: [],
+        fundingRange: "",
+        portfolioHighlights: "",
+        ...(role === UserRole.VC && {
+          fundSize: "",
+          preferredFundingStages: [],
+        }),
+        ...baseDefaults // Add base defaults here for investor
+      };
+    } else if (role === UserRole.IndustryExpert) {
+      roleSpecificDefaults = {
+        areaOfExpertise: EXPERTISE_AREAS[0],
+        yearsOfExperience: 0,
+        servicesOffered: "",
+        ...baseDefaults // Add base defaults here for expert
+      };
+    } else {
+       roleSpecificDefaults = {...baseDefaults}; // Only base defaults if role is unknown
     }
+    
+    // Merge defaults: initial role-specific, then incoming profileData
+    const mergedDefaults = { ...roleSpecificDefaults, ...initialProfileData };
+
+    // Ensure array fields are indeed arrays
+    if (role === UserRole.AngelInvestor || role === UserRole.VC) {
+        mergedDefaults.investmentFocus = Array.isArray(mergedDefaults.investmentFocus) ? mergedDefaults.investmentFocus : [];
+        if (role === UserRole.VC) {
+            mergedDefaults.preferredFundingStages = Array.isArray(mergedDefaults.preferredFundingStages) ? mergedDefaults.preferredFundingStages : [];
+        }
+    }
+    return mergedDefaults;
+  };
+
+
+  const { control, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(validationSchema),
+    defaultValues: getInitialFormValues(),
   });
 
   const onSubmit = (data: any) => { 
@@ -206,3 +255,4 @@ export function SignupStep3Profile({ onComplete, onBack, role, defaultValues, is
     </form>
   );
 }
+
