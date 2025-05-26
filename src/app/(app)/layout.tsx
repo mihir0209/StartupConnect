@@ -1,3 +1,4 @@
+
 "use client"; // This layout uses client-side hooks (useAuth, usePathname)
 
 import { useEffect, type ReactNode } from 'react';
@@ -32,11 +33,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset> {/* SidebarInset is the main container, it's a <main> like element */}
         <AppHeader />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+        {/* This div now handles the padding and scrolling for the page content */}
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
           {children}
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
