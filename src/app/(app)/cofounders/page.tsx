@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -10,26 +11,35 @@ import { INDUSTRIES, EXPERTISE_AREAS } from "@/lib/constants";
 import type { CofounderListing, CofounderPreference, User } from "@/lib/types";
 import { mockUsers } from "@/lib/mockData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { SearchCode, UserCheck, Percent } from "lucide-react";
+import { SearchCode, UserCheck, Percent, Clock } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const mockCofounderMatches: (User & { compatibilityScore: number })[] = mockUsers
-  .filter(u => u.id !== 'user1') // Exclude self
-  .slice(0,3) // Take first 3 other users
-  .map(u => ({...u, compatibilityScore: Math.floor(Math.random() * (95 - 75 + 1) + 75) })); // Random score 75-95
+  .filter(u => u.id !== 'user1') // Exclude self for default mock
+  .slice(0,3) 
+  .map(u => ({...u, compatibilityScore: Math.floor(Math.random() * (95 - 75 + 1) + 75) }));
 
 
 export default function CofoundersPage() {
+  const { user: loggedInUser, sendConnectionRequest } = useAuth();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState<Partial<CofounderPreference>>({});
   const [matches, setMatches] = useState<(User & { compatibilityScore: number })[]>([]);
+  // State to track pending requests for UI updates
+  const [pendingRequests, setPendingRequests] = useState<string[]>(loggedInUser?.connectionRequestsSent || []);
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock search logic:
     // In a real app, this would call an AI-powered backend service.
-    // For now, we just return some mock users.
-    setMatches(mockCofounderMatches);
+    const filteredMatches = mockUsers
+      .filter(u => u.id !== loggedInUser?.id)
+      .map(u => ({...u, compatibilityScore: Math.floor(Math.random() * (95 - 75 + 1) + 75) }))
+      .slice(0, Math.floor(Math.random() * 3) + 2); // random 2-4 matches
+    setMatches(filteredMatches);
   };
   
   const getInitials = (name: string = "") => {
@@ -38,11 +48,29 @@ export default function CofoundersPage() {
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
   }
 
+  const handleConnect = async (targetUserId: string) => {
+    if (!loggedInUser) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in to connect."});
+      return;
+    }
+    const result = await sendConnectionRequest(targetUserId);
+    if (result.success) {
+      toast({ title: "Connection Request Sent" });
+      setPendingRequests(prev => [...prev, targetUserId]);
+    } else {
+      toast({ variant: "destructive", title: "Error", description: result.error });
+    }
+  };
+
+  const handleCreateListing = () => {
+    toast({ title: "Feature Coming Soon", description: "Ability to create your co-founder listing will be added."});
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-foreground">Co-Founder Matching</h1>
-        <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
+        <Button className="bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleCreateListing}>
           <SearchCode className="mr-2 h-5 w-5" /> Create Your Listing
         </Button>
       </div>
@@ -123,9 +151,19 @@ export default function CofoundersPage() {
                 <p className="text-xs text-muted-foreground px-2 line-clamp-2">
                     {match.profile.bio || "User has not set a bio yet."}
                 </p>
-                <Button size="sm" className="mt-4 bg-accent hover:bg-accent/90 text-accent-foreground w-full">
-                  <UserCheck className="mr-2 h-4 w-4" /> Connect
-                </Button>
+                {loggedInUser?.connections.includes(match.id) ? (
+                   <Button size="sm" variant="outline" className="mt-4 w-full" asChild>
+                     <Link href={`/messages?chatWith=${match.id}`}>Message</Link>
+                   </Button>
+                ) : pendingRequests.includes(match.id) || loggedInUser?.connectionRequestsSent.includes(match.id) ? (
+                  <Button size="sm" variant="outline" className="mt-4 w-full" disabled>
+                    <Clock className="mr-2 h-4 w-4" /> Pending
+                  </Button>
+                ) : (
+                  <Button size="sm" className="mt-4 bg-accent hover:bg-accent/90 text-accent-foreground w-full" onClick={() => handleConnect(match.id)}>
+                    <UserCheck className="mr-2 h-4 w-4" /> Connect
+                  </Button>
+                )}
               </Card>
             ))}
           </CardContent>

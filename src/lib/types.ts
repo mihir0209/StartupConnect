@@ -30,7 +30,7 @@ export interface ExpertProfile extends BaseProfile {
   servicesOffered?: string;
 }
 
-export type ProfileData = FounderProfile | InvestorProfile | ExpertProfile;
+export type ProfileData = FounderProfile | InvestorProfile | ExpertProfile | BaseProfile;
 
 export interface User {
   id: string;
@@ -49,6 +49,7 @@ export interface Post {
   authorId: string;
   content: string;
   imageUrl?: string;
+  dataAiHint?: string;
   likes: string[]; // Array of user IDs
   comments: Comment[];
   createdAt: string;
@@ -117,9 +118,11 @@ export type SignupFormData = {
 };
 
 export type ProfileField = {
-  name: keyof FounderProfile | keyof InvestorProfile | keyof ExpertProfile;
+  name: keyof FounderProfile | keyof InvestorProfile | keyof ExpertProfile | keyof BaseProfile;
   label: string;
   type: "text" | "textarea" | "select" | "number" | "multiselect";
   options?: string[];
   required?: boolean;
 };
+
+export type ConnectionStatus = 'not_connected' | 'pending_sent' | 'pending_received' | 'connected';

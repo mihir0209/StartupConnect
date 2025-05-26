@@ -1,4 +1,5 @@
-"use client"; // Added to enable client-side hooks like useState
+
+"use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,36 +8,24 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { mockUsers, mockChats as initialMockChats } from "@/lib/mockData";
 import { MessageSquare, Send, Search, PlusCircle, Paperclip } from "lucide-react";
 import Link from "next/link";
-import type { Chat, Message as MessageType } from "@/lib/types";
-import { useState } from "react"; // Assuming this will be client component for interactivity
+import type { Chat, Message as MessageType, User } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+
 
 // Make a mutable copy for client-side interaction simulation
 let mockChats: Chat[] = JSON.parse(JSON.stringify(initialMockChats)); 
-if (!mockChats.length && mockUsers.length >= 2) { // Populate with some mock chats if empty
-    mockChats.push({
-        id: 'chat1',
-        participantIds: ['user1', 'user2'],
-        lastMessage: { id: 'msg1', chatId: 'chat1', senderId: 'user1', content: 'Hey Bob, saw your post on Climate Tech!', timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString()},
-        isGroupChat: false,
-    });
-    mockChats.push({
-        id: 'chat2',
-        participantIds: ['user1', 'user3'],
-        lastMessage: { id: 'msg2', chatId: 'chat2', senderId: 'user3', content: 'Thanks for the advice on product dev!', timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString()},
-        isGroupChat: false,
-    });
-}
-
 
 // Helper to get participant details
 const getParticipantDetails = (participantIds: string[], currentUserId: string) => {
     const otherParticipantId = participantIds.find(id => id !== currentUserId);
-    if (!otherParticipantId) return { name: 'Unknown Group', avatar: 'https://placehold.co/40x40.png?text=G' };
+    if (!otherParticipantId) return { name: 'Unknown Group', avatar: 'https://placehold.co/40x40.png?text=G', userId: null };
     const user = mockUsers.find(u => u.id === otherParticipantId);
     return { 
       name: user?.name || 'Unknown User', 
-      avatar: user?.profile.profilePictureUrl || `https://placehold.co/40x40.png?text=${user?.name[0] || 'U'}`,
-      userId: user?.id
+      avatar: user?.profile.profilePictureUrl || `https://placehold.co/40x40.png?text=${user?.name?.[0] || 'U'}`,
+      userId: user?.id || null
     };
 };
 
@@ -46,23 +35,83 @@ const getInitials = (name: string = "") => {
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
 }
 
-// Mock current user ID for demo purposes
-const currentUserId = 'user1'; 
-const currentUser = mockUsers.find(u => u.id === currentUserId);
-
-
 export default function MessagesPage() {
-  // For a real app, selectedChat and messages would be managed with useState and fetched/updated.
-  // This is a static representation for now.
-  const [selectedChat, setSelectedChat] = useState<Chat | null>(mockChats.length > 0 ? mockChats[0] : null);
-  const [messages, setMessages] = useState<MessageType[]>(selectedChat ? [selectedChat.lastMessage!] : []); // simplified
+  const { user: currentUser, createMockChat } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [messages, setMessages] = useState<MessageType[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(true);
+
+  useEffect(() => {
+    const chatWithUserId = searchParams.get('chatWith');
+    const preselectedChatId = searchParams.get('chatId'); // From profile page potentially
+
+    const initializeChat = async () => {
+        setIsChatLoading(true);
+        if (!currentUser) {
+            setIsChatLoading(false);
+            return;
+        }
+
+        if (preselectedChatId) {
+            const chat = mockChats.find(c => c.id === preselectedChatId);
+            if (chat) {
+                setSelectedChat(chat);
+                setMessages(chat.lastMessage ? [chat.lastMessage] : []); // Simplified
+            }
+        } else if (chatWithUserId) {
+            // Try to find an existing 1-on-1 chat
+            let existingChat = mockChats.find(c => 
+                !c.isGroupChat && 
+                c.participantIds.includes(currentUser.id) && 
+                c.participantIds.includes(chatWithUserId)
+            );
+
+            if (!existingChat) { // If no chat, try to create one (mock)
+                const result = await createMockChat([currentUser.id, chatWithUserId]);
+                if (result.success && result.chatId) {
+                    existingChat = mockChats.find(c => c.id === result.chatId);
+                }
+            }
+            
+            if (existingChat) {
+                setSelectedChat(existingChat);
+                setMessages(existingChat.lastMessage ? [existingChat.lastMessage] : []); // Simplified
+            } else {
+                // Could not find or create chat, maybe show an error or default state
+                setSelectedChat(null);
+                setMessages([]);
+            }
+        } else if (mockChats.length > 0) {
+            // Default to first chat if no specific user is targeted
+             const firstUserChat = mockChats.find(c => c.participantIds.includes(currentUser.id));
+             if (firstUserChat) {
+                setSelectedChat(firstUserChat);
+                setMessages(firstUserChat.lastMessage ? [firstUserChat.lastMessage] : []);
+             } else {
+                setSelectedChat(null);
+                setMessages([]);
+             }
+        } else {
+             setSelectedChat(null);
+             setMessages([]);
+        }
+        setIsChatLoading(false);
+    };
+
+    initializeChat();
+  }, [searchParams, currentUser, createMockChat]);
+
 
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
-    // Mock fetching messages for this chat
     setMessages(chat.lastMessage ? [chat.lastMessage] : []); 
     // In a real app, fetch all messages for chat.id
+    // Clear query params if user manually selects a different chat
+    router.replace('/messages', { scroll: false }); 
   };
   
   const handleSendMessage = () => {
@@ -76,19 +125,28 @@ export default function MessagesPage() {
     };
     setMessages(prev => [...prev, message]);
     
-    // Update mockChats lastMessage for the sidebar
     const chatIndex = mockChats.findIndex(c => c.id === selectedChat.id);
     if (chatIndex > -1) {
         mockChats[chatIndex].lastMessage = message;
+        // Potentially re-sort mockChats based on lastMessage timestamp if sidebar order matters
+         mockChats.sort((a, b) => {
+            if (!a.lastMessage) return 1;
+            if (!b.lastMessage) return -1;
+            return new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime();
+        });
     }
-
     setNewMessage("");
   };
 
+  if (isChatLoading || !currentUser) {
+    return <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] items-center justify-center">Loading chats...</div>;
+  }
+  
+  // Filter chats to only show those the currentUser is part of
+  const userChats = mockChats.filter(chat => chat.participantIds.includes(currentUser.id));
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] border rounded-lg overflow-hidden shadow-lg"> {/* Adjust height based on your header and padding */}
-      {/* Sidebar for chats */}
+    <div className="flex h-[calc(100vh-var(--header-height,4rem)-2*var(--main-padding,1.5rem))] border rounded-lg overflow-hidden shadow-lg">
       <div className="w-1/3 border-r bg-card flex flex-col">
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-3">
@@ -101,8 +159,8 @@ export default function MessagesPage() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {mockChats.map(chat => {
-            const details = getParticipantDetails(chat.participantIds, currentUserId);
+          {userChats.map(chat => {
+            const details = getParticipantDetails(chat.participantIds, currentUser.id);
             return (
               <button 
                 key={chat.id} 
@@ -117,37 +175,38 @@ export default function MessagesPage() {
                   <p className="font-semibold truncate">{details.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{chat.lastMessage?.content || "No messages yet"}</p>
                 </div>
+                {chat.lastMessage && <p className="text-xs text-muted-foreground self-start shrink-0">{new Date(chat.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
               </button>
             );
           })}
+           {userChats.length === 0 && <p className="p-4 text-center text-muted-foreground">No conversations yet.</p>}
         </div>
       </div>
 
-      {/* Main chat area */}
       <div className="w-2/3 flex flex-col bg-background">
         {selectedChat ? (
           <>
             <div className="p-4 border-b flex items-center gap-3 bg-card">
               <Avatar className="h-10 w-10">
-                 <AvatarImage src={getParticipantDetails(selectedChat.participantIds, currentUserId).avatar} data-ai-hint="profile avatar small"/>
-                 <AvatarFallback>{getInitials(getParticipantDetails(selectedChat.participantIds, currentUserId).name)}</AvatarFallback>
+                 <AvatarImage src={getParticipantDetails(selectedChat.participantIds, currentUser.id).avatar} data-ai-hint="profile avatar small"/>
+                 <AvatarFallback>{getInitials(getParticipantDetails(selectedChat.participantIds, currentUser.id).name)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold">{getParticipantDetails(selectedChat.participantIds, currentUserId).name}</p>
-                <p className="text-xs text-green-500">Online</p> {/* Mock status */}
+                <p className="font-semibold">{getParticipantDetails(selectedChat.participantIds, currentUser.id).name}</p>
+                {/* Mock status or link to profile */}
+                 <Link href={`/profile/${getParticipantDetails(selectedChat.participantIds, currentUser.id).userId || ''}`} className="text-xs text-primary hover:underline">View Profile</Link>
               </div>
             </div>
             <div className="flex-1 p-4 overflow-y-auto space-y-4">
-              {/* Placeholder for messages */}
               {messages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl ${msg.senderId === currentUserId ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
+                <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow ${msg.senderId === currentUser.id ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
                         <p className="text-sm">{msg.content}</p>
                         <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                 </div>
               ))}
-              {messages.length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet.</p>}
+              {messages.length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
             </div>
             <div className="p-4 border-t bg-card flex items-center gap-2">
               <Button variant="ghost" size="icon"><Paperclip className="h-5 w-5 text-muted-foreground"/></Button>
@@ -168,7 +227,7 @@ export default function MessagesPage() {
           <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
             <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground">Select a chat to start messaging</h2>
-            <p className="text-muted-foreground">Or create a new conversation.</p>
+            <p className="text-muted-foreground">Or create a new conversation from a user's profile.</p>
           </div>
         )}
       </div>
