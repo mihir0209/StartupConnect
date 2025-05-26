@@ -23,7 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 // Schemas for validation
 const BaseProfileSchemaClient = z.object({
   name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email"), 
+  email: z.string().email("Invalid email"),
   bio: z.string().optional().default(""),
   location: z.string().optional().default(""),
   website: z.string().url().optional().or(z.literal('')).default(""),
@@ -59,7 +59,7 @@ const getValidationSchema = (role: UserRole) => {
     case UserRole.AngelInvestor:
     case UserRole.VC: return InvestorProfileSchemaClient;
     case UserRole.IndustryExpert: return ExpertProfileSchemaClient;
-    default: return BaseProfileSchemaClient; 
+    default: return BaseProfileSchemaClient;
   }
 };
 
@@ -116,49 +116,76 @@ export default function ProfileSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const validationSchema = user ? getValidationSchema(user.role) : BaseProfileSchemaClient; 
+  const validationSchema = user ? getValidationSchema(user.role) : BaseProfileSchemaClient;
   const profileFields = user ? getProfileFields(user.role) : [];
-  
+
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<any>({
     resolver: zodResolver(validationSchema),
-    defaultValues: {},
+    defaultValues: {}, // Initialize with empty object, reset will populate it
   });
 
   useEffect(() => {
     if (user) {
-      const schemaDefaults = validationSchema.parse({});
-      const defaultFormData = {
-        ...schemaDefaults, 
+      // Construct defaultFormData from user data, providing fallbacks for potentially missing fields
+      // This avoids calling validationSchema.parse({}) on an empty object.
+      const currentProfile = user.profile || {};
+      const defaultFormData: Partial<User & ProfileData> = {
         name: user.name,
-        email: user.email, 
-        ...(user.profile as any),
-        investmentFocus: (user.profile as InvestorProfile)?.investmentFocus || [],
-        preferredFundingStages: (user.profile as InvestorProfile)?.preferredFundingStages || [],
-        language: (user.profile as BaseProfile)?.language || 'en',
+        email: user.email, // Email is part of the form but typically not directly editable here if from Auth
+        
+        // Base profile fields
+        bio: currentProfile.bio ?? "",
+        location: currentProfile.location ?? "",
+        website: currentProfile.website ?? "",
+        profilePictureUrl: currentProfile.profilePictureUrl ?? "",
+        language: (currentProfile as BaseProfile).language || 'en',
+
+        // Role-specific fields from user.profile or defaults
+        ...(user.role === UserRole.Founder && {
+          startupName: (currentProfile as FounderProfile).startupName ?? "",
+          industry: (currentProfile as FounderProfile).industry ?? INDUSTRIES[0],
+          fundingStage: (currentProfile as FounderProfile).fundingStage ?? FUNDING_STAGES[0],
+          traction: (currentProfile as FounderProfile).traction ?? "",
+          needs: (currentProfile as FounderProfile).needs ?? "",
+        }),
+        ...( (user.role === UserRole.AngelInvestor || user.role === UserRole.VC) && {
+          investmentFocus: Array.isArray((currentProfile as InvestorProfile).investmentFocus) ? (currentProfile as InvestorProfile).investmentFocus : [],
+          fundingRange: (currentProfile as InvestorProfile).fundingRange ?? "",
+          portfolioHighlights: (currentProfile as InvestorProfile).portfolioHighlights ?? "",
+          ...(user.role === UserRole.VC && {
+            fundSize: (currentProfile as InvestorProfile).fundSize ?? "",
+            preferredFundingStages: Array.isArray((currentProfile as InvestorProfile).preferredFundingStages) ? (currentProfile as InvestorProfile).preferredFundingStages : [],
+          }),
+        }),
+        ...(user.role === UserRole.IndustryExpert && {
+          areaOfExpertise: (currentProfile as ExpertProfile).areaOfExpertise ?? EXPERTISE_AREAS[0],
+          yearsOfExperience: (currentProfile as ExpertProfile).yearsOfExperience ?? 0,
+          servicesOffered: (currentProfile as ExpertProfile).servicesOffered ?? "",
+        }),
       };
       reset(defaultFormData);
     }
-  }, [user, reset, validationSchema]);
+  }, [user, reset]);
 
   const onSubmit: SubmitHandler<any> = async (data) => {
     if (!user) return;
 
     const { name: formName, email: formEmail, ...profileDataFromForm } = data;
-    
+
     // Ensure profile data is clean of top-level name/email which are part of User, not ProfileData
     const cleanProfileData = { ...profileDataFromForm };
-    delete cleanProfileData.name; 
+    delete cleanProfileData.name;
     delete cleanProfileData.email;
 
     const updatedUserPartial: Partial<User> = {
       name: formName,
       profile: {
-        ...(user.profile as ProfileData), 
-        ...cleanProfileData, 
+        ...(user.profile as ProfileData),
+        ...cleanProfileData,
       } as ProfileData,
     };
-    
-    const result = await updateUserInContext(updatedUserPartial); 
+
+    const result = await updateUserInContext(updatedUserPartial);
     if (result.success) {
       toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
       router.push(`/profile/${user.id}`);
@@ -170,7 +197,7 @@ export default function ProfileSettingsPage() {
   if (isLoading || !user) {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
-  
+
   const renderField = (field: ProfileField) => {
     const error = errors[field.name as keyof typeof errors];
     return (
@@ -180,7 +207,7 @@ export default function ProfileSettingsPage() {
           name={field.name as any}
           control={control}
           render={({ field: controllerField }) => {
-            if (field.name === "email") { 
+            if (field.name === "email") {
               return <Input id={field.name} {...controllerField} value={controllerField.value || ''} readOnly className="bg-muted/50" />;
             }
             if (field.type === "textarea") {
@@ -263,7 +290,7 @@ export default function ProfileSettingsPage() {
           </CardFooter>
         </Card>
       </form>
-      
+
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Account Settings</CardTitle>
@@ -283,3 +310,5 @@ export default function ProfileSettingsPage() {
     </div>
   );
 }
+
+    
