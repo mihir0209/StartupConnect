@@ -1,10 +1,11 @@
 
 "use client";
 
-import type { SignupStep, SignupFormData, User, ProfileData } from "@/lib/types";
-import { UserRole } from "@/lib/constants";
+import type { SignupStep, SignupFormData } from "@/lib/types";
+import { UserRole, APP_NAME } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Logo } from "@/components/shared/Logo";
@@ -16,6 +17,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
+const BANNER_URL = "https://i.ibb.co/mrFXb2jD/Screenshot-2025-05-27-155445.png";
+
 export function SignupFormWrapper() {
   const router = useRouter();
   const { signupWithEmailPassword: contextSignup, user, isLoading: authLoading } = useAuth();
@@ -23,6 +26,27 @@ export function SignupFormWrapper() {
   const [formData, setFormData] = useState<SignupFormData>({});
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Animation states
+  const [showBanner, setShowBanner] = useState(false);
+  const [showTitle, setShowTitle] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
+  const [showFormElements, setShowFormElements] = useState(false); // For the progress bar and form content
+
+  useEffect(() => {
+    const timer1 = setTimeout(() => setShowBanner(true), 100);
+    const timer2 = setTimeout(() => setShowTitle(true), 600);
+    const timer3 = setTimeout(() => setShowDescription(true), 1100);
+    const timer4 = setTimeout(() => setShowFormElements(true), 1500); 
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+    };
+  }, []);
+
 
   useEffect(() => {
     if (user && !authLoading) {
@@ -54,12 +78,11 @@ export function SignupFormWrapper() {
     setFormData(finalData);
 
     if (!finalData.email || !finalData.password || !finalData.name || !finalData.role || !finalData.profileData) {
-        setError("All information is required to complete signup.");
-        setIsSubmitting(false);
-        return;
+      setError("All information is required to complete signup.");
+      setIsSubmitting(false);
+      return;
     }
 
-    // Use the signup method from AuthContext
     const result = await contextSignup(
       finalData.email,
       finalData.password,
@@ -70,7 +93,6 @@ export function SignupFormWrapper() {
 
     if (result.success && result.user) {
       // AuthContext will set the user, useEffect will redirect
-      // router.push('/home'); // Handled by useEffect
     } else {
       setError(result.error || "An unknown error occurred during signup.");
     }
@@ -78,38 +100,59 @@ export function SignupFormWrapper() {
   };
 
   const progressValue = (currentStep / 3) * 100;
-  
+
   const stepTitles = {
     1: "Create Your Account",
     2: "Select Your Role",
     3: "Complete Your Profile"
   };
+  const welcomeTitle = `Join ${APP_NAME}!`;
 
-  if (authLoading && !user) { 
+  if (authLoading && !user) {
     return (
-        <div className="flex h-screen items-center justify-center bg-background p-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-2">Setting up your account...</p>
-        </div>
+      <div className="flex h-screen items-center justify-center bg-background p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-2">Setting up your account...</p>
+      </div>
     );
   }
 
-
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 overflow-hidden">
+       <div
+        className={`mb-6 w-full max-w-lg transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
+      >
+        <Image
+          src={BANNER_URL}
+          alt={`${APP_NAME} Banner`}
+          width={512} // max-w-lg is 512px
+          height={106} // Maintaining aspect ratio
+          className="rounded-lg shadow-lg object-cover"
+          priority
+          data-ai-hint="brand banner"
+        />
+      </div>
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
+          <div className={`flex justify-center mb-4 transition-all duration-700 ease-out ${showTitle ? "opacity-100 scale-125" : "opacity-0 scale-100"}`}>
             <Logo type="full" size="lg"/>
           </div>
-          <CardTitle className="text-2xl">{stepTitles[currentStep]}</CardTitle>
-          <CardDescription>
+          <CardTitle
+            className={`text-2xl transition-all duration-1000 ease-out ${showTitle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-5"}`}
+          >
+            {welcomeTitle}
+          </CardTitle>
+          <CardDescription
+            className={`transition-opacity duration-700 ease-in-out ${showDescription ? "opacity-100" : "opacity-0"}`}
+          >
             {currentStep === 1 && "Let's get started with your basic information."}
             {currentStep === 2 && "Choose the role that best describes you in the startup ecosystem."}
             {currentStep === 3 && `Please provide details for your ${formData.role || 'selected'} profile.`}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent
+            className={`transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
+        >
           <Progress value={progressValue} className="mb-6 h-2" />
           {error && (
             <Alert variant="destructive" className="mb-4">
@@ -130,10 +173,12 @@ export function SignupFormWrapper() {
             />
           )}
         </CardContent>
-         <CardFooter className="flex flex-col items-center space-y-2 pt-4">
-           <p className="text-sm text-muted-foreground">
-             Already have an account? <Link href="/login" legacyBehavior><a className="font-medium text-primary hover:underline">Log In</a></Link>
-           </p>
+        <CardFooter 
+            className={`flex flex-col items-center space-y-2 pt-4 transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
+        >
+          <p className="text-sm text-muted-foreground">
+            Already have an account? <Link href="/login" legacyBehavior><a className="font-medium text-primary hover:underline">Log In</a></Link>
+          </p>
         </CardFooter>
       </Card>
     </div>
