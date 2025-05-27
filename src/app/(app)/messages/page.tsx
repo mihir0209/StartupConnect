@@ -6,21 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { mockUsers, mockChats as initialMockChats } from "@/lib/mockData";
-import { MessageSquare, Send, Search, PlusCircle, Paperclip } from "lucide-react";
+import { MessageSquare, Send, Search, PlusCircle, Paperclip, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { Chat, Message as MessageType, User } from "@/lib/types";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { ScrollArea } from "@/components/ui/scroll-area"; 
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 
 const getParticipantDetails = (participantIds: string[], currentUserId: string) => {
     const otherParticipantId = participantIds.find(id => id !== currentUserId);
     if (!otherParticipantId) return { name: 'Unknown Group', avatar: 'https://placehold.co/40x40.png?text=G', userId: null };
     const user = mockUsers.find(u => u.id === otherParticipantId);
-    return { 
-      name: user?.name || 'Unknown User', 
+    return {
+      name: user?.name || 'Unknown User',
       avatar: user?.profile.profilePictureUrl || `https://placehold.co/40x40.png?text=${getInitials(user?.name)}`,
       userId: user?.id || null
     };
@@ -37,15 +39,16 @@ export default function MessagesPage() {
   const { user: currentUser, createMockChat, sendMessage } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+  const isMobile = useIsMobile();
+
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null); 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const chatWithUserId = searchParams.get('chatWith');
-    const preselectedChatId = searchParams.get('chatId'); 
+    const preselectedChatId = searchParams.get('chatId');
 
     const initializeChat = async () => {
         setIsChatLoading(true);
@@ -59,16 +62,16 @@ export default function MessagesPage() {
         if (preselectedChatId) {
             chatToSelect = initialMockChats.find(c => c.id === preselectedChatId && c.participantIds.includes(currentUser.id));
         } else if (chatWithUserId) {
-            chatToSelect = initialMockChats.find(c => 
-                !c.isGroupChat && 
-                c.participantIds.includes(currentUser.id) && 
+            chatToSelect = initialMockChats.find(c =>
+                !c.isGroupChat &&
+                c.participantIds.includes(currentUser.id) &&
                 c.participantIds.includes(chatWithUserId)
             );
 
-            if (!chatToSelect) { 
+            if (!chatToSelect) {
                 const result = await createMockChat([currentUser.id, chatWithUserId]);
                 if (result.success && result.chat) {
-                    chatToSelect = result.chat; 
+                    chatToSelect = result.chat;
                 }
             }
         } else if (initialMockChats.filter(c => c.participantIds.includes(currentUser.id)).length > 0) {
@@ -76,7 +79,7 @@ export default function MessagesPage() {
                 .sort((a,b) => new Date(b.lastMessage?.timestamp || 0).getTime() - new Date(a.lastMessage?.timestamp || 0).getTime());
              chatToSelect = userChats[0];
         }
-        
+
         setSelectedChat(chatToSelect || null);
         setIsChatLoading(false);
     };
@@ -93,19 +96,27 @@ export default function MessagesPage() {
 
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
-    router.replace(`/messages?chatId=${chat.id}`, { scroll: false }); 
+    if (!isMobile) {
+      router.replace(`/messages?chatId=${chat.id}`, { scroll: false });
+    }
   };
-  
+
+  const handleGoBackToChatList = () => {
+    setSelectedChat(null);
+    // Optionally clear URL params if desired for mobile, e.g., by navigating to /messages
+    if (isMobile) {
+        router.replace('/messages', { scroll: false });
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChat || !currentUser) return;
-    
+
     const result = await sendMessage(selectedChat.id, currentUser.id, newMessage.trim());
 
     if (result.success && result.newMessage) {
-        // The mockChats array is mutated by sendMessage in AuthContext,
-        // so we find the updated chat from there.
         const updatedChat = initialMockChats.find(c => c.id === selectedChat.id);
-        setSelectedChat(updatedChat || null); // Ensure re-render with new messages
+        setSelectedChat(updatedChat || null);
         setNewMessage("");
     } else {
         console.error("Failed to send message:", result.error);
@@ -115,14 +126,20 @@ export default function MessagesPage() {
   if (isChatLoading || !currentUser) {
     return <div className="flex h-full items-center justify-center">Loading chats...</div>;
   }
-  
+
   const userChats = initialMockChats
     .filter(chat => chat.participantIds.includes(currentUser.id))
     .sort((a,b) => new Date(b.lastMessage?.timestamp || 0).getTime() - new Date(a.lastMessage?.timestamp || 0).getTime());
 
   return (
     <div className="flex h-full border rounded-lg overflow-hidden shadow-lg">
-      <div className="w-1/3 border-r bg-card flex flex-col">
+      {/* Chat List Pane */}
+      <div className={cn(
+        "border-r bg-card flex flex-col", // Base styles
+        isMobile
+          ? (selectedChat ? "hidden" : "w-full") // Mobile: Hidden if chat selected, else full width
+          : "w-1/3" // Desktop: Fixed width
+      )}>
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-xl font-semibold">Messages</h2>
@@ -137,17 +154,17 @@ export default function MessagesPage() {
           {userChats.map(chat => {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
             const lastMessageContent = chat.lastMessage?.content;
-            const previewText = lastMessageContent 
-              ? (lastMessageContent.length > 20 
-                  ? lastMessageContent.substring(0, 20) + "..." 
+            const previewText = lastMessageContent
+              ? (lastMessageContent.length > 25 // Truncate preview text
+                  ? lastMessageContent.substring(0, 25) + "..."
                   : lastMessageContent)
               : "No messages yet";
 
             return (
-              <button 
-                key={chat.id} 
+              <button
+                key={chat.id}
                 onClick={() => handleSelectChat(chat)}
-                className={`w-full flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors text-left ${selectedChat?.id === chat.id ? 'bg-accent' : ''}`}
+                className={`w-full flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors text-left ${selectedChat?.id === chat.id && !isMobile ? 'bg-accent' : ''}`}
               >
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={details.avatar} alt={details.name} data-ai-hint="profile avatar small"/>
@@ -165,10 +182,21 @@ export default function MessagesPage() {
         </ScrollArea>
       </div>
 
-      <div className="w-2/3 flex flex-col bg-background">
+      {/* Chat Content Pane */}
+      <div className={cn(
+        "flex flex-col bg-background", // Base styles for the content holder itself
+        isMobile
+          ? (selectedChat ? "w-full" : "hidden") // Mobile: Full width if chat selected, else hidden
+          : "w-2/3 flex-1" // Desktop: Fixed width and flex-1 to fill space
+      )}>
         {selectedChat ? (
           <>
             <div className="p-4 border-b flex items-center gap-3 bg-card">
+              {isMobile && (
+                <Button variant="ghost" size="icon" onClick={handleGoBackToChatList} className="mr-2">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              )}
               <Avatar className="h-10 w-10">
                  <AvatarImage src={getParticipantDetails(selectedChat.participantIds, currentUser.id).avatar} data-ai-hint="profile avatar small"/>
                  <AvatarFallback>{getInitials(getParticipantDetails(selectedChat.participantIds, currentUser.id).name)}</AvatarFallback>
@@ -187,14 +215,14 @@ export default function MessagesPage() {
                     </div>
                 </div>
               ))}
-              <div ref={messagesEndRef} /> 
+              <div ref={messagesEndRef} />
               {(selectedChat.messages || []).length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
             </ScrollArea>
             <div className="p-4 border-t bg-card flex items-center gap-2">
               <Button variant="ghost" size="icon"><Paperclip className="h-5 w-5 text-muted-foreground"/></Button>
-              <Input 
-                placeholder="Type a message..." 
-                className="flex-1" 
+              <Input
+                placeholder="Type a message..."
+                className="flex-1"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
@@ -206,6 +234,9 @@ export default function MessagesPage() {
             </div>
           </>
         ) : (
+          // This placeholder is now implicitly hidden on mobile when no chat is selected,
+          // because the entire parent div for chat content is hidden.
+          // It will only show on desktop when no chat is selected.
           <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
             <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground">Select a chat to start messaging</h2>
@@ -216,4 +247,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-
