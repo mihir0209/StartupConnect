@@ -78,12 +78,12 @@ export function AppHeader() {
       {isMobile && (
          <SidebarTrigger className="md:hidden" />
       )}
-      <Link 
-        href="/home" 
+      <Link
+        href="/home"
         className={cn(
             "flex items-center gap-2 mr-auto",
             "transform-gpu transition-transform duration-200 ease-in-out", // Base transform classes
-            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-40px]"
+            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-25px]" // Adjusted ml-[-40px] to ml-[-25px]
         )}
         aria-label={`${APP_NAME} Home`}
       >
