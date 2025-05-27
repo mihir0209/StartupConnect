@@ -78,8 +78,20 @@ export function AppHeader() {
          <SidebarTrigger className="md:hidden" />
       )}
       <Link href="/home" className="flex items-center gap-2 mr-auto md:mr-4" aria-label={`${APP_NAME} Home`}>
-        <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
-      </Link>
+  <div
+    style={{
+      transform: 'scale(1.5)',
+      transformOrigin: 'left center',
+      marginLeft: '-40px',
+      paddingRight: '30px',
+    }}
+  >
+    <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
+  </div>
+</Link>
+
+
+
       
       <div className="relative flex-1 md:grow-0 md:flex-initial md:w-96 hidden md:block">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

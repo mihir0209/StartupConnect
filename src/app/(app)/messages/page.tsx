@@ -69,6 +69,7 @@ export default function MessagesPage() {
             );
 
             if (!chatToSelect) {
+                // Attempt to create a chat if one doesn't exist
                 const result = await createMockChat([currentUser.id, chatWithUserId]);
                 if (result.success && result.chat) {
                     chatToSelect = result.chat;
@@ -97,13 +98,14 @@ export default function MessagesPage() {
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
     if (!isMobile) {
+      // Update URL without full page reload for desktop
       router.replace(`/messages?chatId=${chat.id}`, { scroll: false });
     }
   };
 
   const handleGoBackToChatList = () => {
     setSelectedChat(null);
-    // Optionally clear URL params if desired for mobile, e.g., by navigating to /messages
+    // Optionally clear URL params if desired for mobile
     if (isMobile) {
         router.replace('/messages', { scroll: false });
     }
@@ -115,10 +117,12 @@ export default function MessagesPage() {
     const result = await sendMessage(selectedChat.id, currentUser.id, newMessage.trim());
 
     if (result.success && result.newMessage) {
+        // The mockChats array is mutated by AuthContext, so we need to find the updated chat
         const updatedChat = initialMockChats.find(c => c.id === selectedChat.id);
-        setSelectedChat(updatedChat || null);
+        setSelectedChat(updatedChat || null); // Re-set selectedChat to trigger re-render with new message
         setNewMessage("");
     } else {
+        // Handle error, e.g., show a toast
         console.error("Failed to send message:", result.error);
     }
   };
@@ -135,10 +139,10 @@ export default function MessagesPage() {
     <div className="flex h-full border rounded-lg overflow-hidden shadow-lg">
       {/* Chat List Pane */}
       <div className={cn(
-        "border-r bg-card flex flex-col", // Base styles
+        "border-r bg-card flex flex-col",
         isMobile
-          ? (selectedChat ? "hidden" : "w-full") // Mobile: Hidden if chat selected, else full width
-          : "w-1/3" // Desktop: Fixed width
+          ? (selectedChat ? "hidden" : "w-full")
+          : "w-1/3"
       )}>
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-3">
@@ -154,9 +158,10 @@ export default function MessagesPage() {
           {userChats.map(chat => {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
             const lastMessageContent = chat.lastMessage?.content;
-            const previewText = lastMessageContent
-              ? (lastMessageContent.length > 20 // Truncate preview text
-                  ? lastMessageContent.substring(0, 20) + "..."
+            // Truncate preview text to around 25 characters
+            const previewText = lastMessageContent 
+              ? (lastMessageContent.length > 25 
+                  ? lastMessageContent.substring(0, 25) + "..." 
                   : lastMessageContent)
               : "No messages yet";
 
@@ -170,7 +175,7 @@ export default function MessagesPage() {
                   <AvatarImage src={details.avatar} alt={details.name} data-ai-hint="profile avatar small"/>
                   <AvatarFallback>{getInitials(details.name)}</AvatarFallback>
                 </Avatar>
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden"> {/* Added overflow-hidden here */}
                   <p className="font-semibold truncate">{details.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{previewText}</p>
                 </div>
@@ -184,10 +189,10 @@ export default function MessagesPage() {
 
       {/* Chat Content Pane */}
       <div className={cn(
-        "flex flex-col bg-background", // Base styles for the content holder itself
-        isMobile
-          ? (selectedChat ? "w-full" : "hidden") // Mobile: Full width if chat selected, else hidden
-          : "w-2/3 flex-1" // Desktop: Fixed width and flex-1 to fill space
+        "flex flex-col bg-background",
+         isMobile
+          ? (selectedChat ? "w-full" : "hidden")
+          : "w-2/3 flex-1"
       )}>
         {selectedChat ? (
           <>
@@ -206,7 +211,7 @@ export default function MessagesPage() {
                  <Link href={`/profile/${getParticipantDetails(selectedChat.participantIds, currentUser.id).userId || ''}`} className="text-xs text-primary hover:underline">View Profile</Link>
               </div>
             </div>
-            <ScrollArea className="flex-1 p-4 space-y-4">
+            <ScrollArea className="flex-1 p-4 space-y-6"> {/* Changed space-y-4 to space-y-6 */}
               {(selectedChat.messages || []).map(msg => (
                 <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow ${msg.senderId === currentUser.id ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
@@ -234,9 +239,6 @@ export default function MessagesPage() {
             </div>
           </>
         ) : (
-          // This placeholder is now implicitly hidden on mobile when no chat is selected,
-          // because the entire parent div for chat content is hidden.
-          // It will only show on desktop when no chat is selected.
           <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
             <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground">Select a chat to start messaging</h2>
