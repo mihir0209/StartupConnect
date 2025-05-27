@@ -28,18 +28,21 @@ export function SignupFormWrapper() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Animation states
+  const [showCard, setShowCard] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [showFormElements, setShowFormElements] = useState(false); // For the progress bar and form content
 
   useEffect(() => {
-    const timer1 = setTimeout(() => setShowBanner(true), 100);
-    const timer2 = setTimeout(() => setShowTitle(true), 600);
-    const timer3 = setTimeout(() => setShowDescription(true), 1100);
-    const timer4 = setTimeout(() => setShowFormElements(true), 1500); 
+    const timer0 = setTimeout(() => setShowCard(true), 50);
+    const timer1 = setTimeout(() => setShowBanner(true), 300); 
+    const timer2 = setTimeout(() => setShowTitle(true), 800); 
+    const timer3 = setTimeout(() => setShowDescription(true), 1300);
+    const timer4 = setTimeout(() => setShowFormElements(true), 1700); 
 
     return () => {
+      clearTimeout(timer0);
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
@@ -119,21 +122,23 @@ export function SignupFormWrapper() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 overflow-hidden">
-       <div
-        className={`mb-6 w-full max-w-lg transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
+      <Card 
+        className={`w-full max-w-lg shadow-xl overflow-hidden transition-opacity duration-500 ease-in-out ${showCard ? "opacity-100" : "opacity-0"}`}
       >
-        <Image
-          src={BANNER_URL}
-          alt={`${APP_NAME} Banner`}
-          width={512} // max-w-lg is 512px
-          height={106} // Maintaining aspect ratio
-          className="rounded-lg shadow-lg object-cover"
-          priority
-          data-ai-hint="brand banner"
-        />
-      </div>
-      <Card className="w-full max-w-lg shadow-xl">
-        <CardHeader className="space-y-1 text-center">
+        <div
+          className={`relative w-full h-28 transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
+          style={{ transitionDelay: showBanner ? '0ms' : '0ms' }}
+        >
+          <Image
+            src={BANNER_URL}
+            alt={`${APP_NAME} Banner`}
+            fill
+            className="object-cover"
+            priority
+            data-ai-hint="brand banner"
+          />
+        </div>
+        <CardHeader className="space-y-1 text-center pt-6">
           <div className={`flex justify-center mb-4 transition-all duration-700 ease-out ${showTitle ? "opacity-100 scale-125" : "opacity-0 scale-100"}`}>
             <Logo type="full" size="lg"/>
           </div>
@@ -152,6 +157,7 @@ export function SignupFormWrapper() {
         </CardHeader>
         <CardContent
             className={`transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
+            style={{ transitionDelay: showFormElements ? '0ms' : '0ms' }}
         >
           <Progress value={progressValue} className="mb-6 h-2" />
           {error && (
@@ -175,6 +181,7 @@ export function SignupFormWrapper() {
         </CardContent>
         <CardFooter 
             className={`flex flex-col items-center space-y-2 pt-4 transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
+            style={{ transitionDelay: showFormElements ? '0ms' : '0ms' }}
         >
           <p className="text-sm text-muted-foreground">
             Already have an account? <Link href="/login" legacyBehavior><a className="font-medium text-primary hover:underline">Log In</a></Link>

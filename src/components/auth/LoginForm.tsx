@@ -30,18 +30,21 @@ export function LoginForm() {
   const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
 
   // Animation states
+  const [showCard, setShowCard] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [showFormElements, setShowFormElements] = useState(false);
 
   useEffect(() => {
-    const timer1 = setTimeout(() => setShowBanner(true), 100); // Banner fade in
-    const timer2 = setTimeout(() => setShowTitle(true), 600); // Title fall/fade in (after banner starts)
-    const timer3 = setTimeout(() => setShowDescription(true), 1100); // Description fade in (after title)
-    const timer4 = setTimeout(() => setShowFormElements(true), 1500); // Form elements fade in
+    const timer0 = setTimeout(() => setShowCard(true), 50); // Card fade in
+    const timer1 = setTimeout(() => setShowBanner(true), 300); // Banner fade in (after card starts)
+    const timer2 = setTimeout(() => setShowTitle(true), 800); // Title fall/fade in (after banner starts)
+    const timer3 = setTimeout(() => setShowDescription(true), 1300); // Description fade in (after title)
+    const timer4 = setTimeout(() => setShowFormElements(true), 1700); // Form elements fade in
 
     return () => {
+      clearTimeout(timer0);
       clearTimeout(timer1);
       clearTimeout(timer2);
       clearTimeout(timer3);
@@ -105,28 +108,30 @@ export function LoginForm() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 overflow-hidden">
-      <div
-        className={`mb-6 w-full max-w-md transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
+      <Card 
+        className={`w-full max-w-md shadow-xl overflow-hidden transition-opacity duration-500 ease-in-out ${showCard ? "opacity-100" : "opacity-0"}`}
       >
-        <Image
-          src={BANNER_URL}
-          alt={`${APP_NAME} Banner`}
-          width={448}
-          height={93} // Approx aspect ratio for 1110x229 banner at max-w-md
-          className="rounded-lg shadow-lg object-cover"
-          priority
-          data-ai-hint="brand banner"
-        />
-      </div>
+        <div
+          className={`relative w-full h-24 transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
+          style={{ transitionDelay: showBanner ? '0ms' : '0ms' }}
+        >
+          <Image
+            src={BANNER_URL}
+            alt={`${APP_NAME} Banner`}
+            fill
+            className="object-cover"
+            priority
+            data-ai-hint="brand banner"
+          />
+        </div>
 
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-1 text-center">
+        <CardHeader className="space-y-1 text-center pt-6">
           <div className={`flex justify-center mb-4 transition-all duration-700 ease-out ${showTitle ? "opacity-100 scale-125" : "opacity-0 scale-100"}`}>
-            <Logo type="full" size="lg" /> {/* Base size lg, scaled by parent div */}
+            <Logo type="full" size="lg" />
           </div>
           <CardTitle
             className={`text-2xl transition-all duration-1000 ease-out ${showTitle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-5"}`}
-            style={{ transitionDelay: showTitle ? '0ms' : '0ms' }} // delay handled by state
+            style={{ transitionDelay: showTitle ? '0ms' : '0ms' }}
           >
             Welcome!
           </CardTitle>
