@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { Logo } from '@/components/shared/Logo';
+// Logo import removed
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -56,6 +56,7 @@ export function AppHeader() {
   };
 
   const getInitials = (name: string = "") => {
+    if (!name) return 'U';
     const names = name.split(' ');
     if (names.length === 1) return names[0][0]?.toUpperCase() || 'U';
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
@@ -76,31 +77,22 @@ export function AppHeader() {
       {isMobile && (
          <SidebarTrigger className="md:hidden" />
       )}
-      <Link
-        href="/home"
-        className={cn(
-            "flex items-center gap-2 mr-auto",
-            "transform-gpu transition-transform duration-200 ease-in-out",
-            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-25px]"
-        )}
-        aria-label={`${APP_NAME} Home`}
-      >
-          <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
-      </Link>
-      
-      <div className="relative flex-initial w-full max-w-md hidden md:block">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          id="header-search-input"
-          name="header-search-input"
-          type="search"
-          placeholder="Search profiles, posts, communities..."
-          className="w-full rounded-lg bg-background pl-8"
-          aria-label="Search"
-          onFocus={() => router.push('/search')} 
-        />
+      {/* Logo removed from here, will rely on Sidebar's logo */}
+      <div className="flex-grow md:flex-grow-0 md:ml-4"> {/* Added flex-grow for mobile, adjusted desktop margin */}
+         <div className="relative w-full max-w-md">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+            id="header-search-input"
+            name="header-search-input"
+            type="search"
+            placeholder="Search profiles, posts, communities..."
+            className="w-full rounded-lg bg-background pl-8"
+            aria-label="Search"
+            onFocus={() => router.push('/search')} 
+            />
+        </div>
       </div>
-
+      
       <nav className="ml-auto flex items-center gap-2 md:gap-4">
         <Button variant="ghost" size="icon" className="rounded-full md:hidden" aria-label="Search" onClick={() => router.push('/search')}>
             <Search className="h-5 w-5" />
@@ -153,7 +145,7 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.profile?.profilePictureUrl || `https://placehold.co/32x32.png?text=${getInitials(user.name)}`} alt={user.name} data-ai-hint="profile avatar" />
+                  <AvatarImage src={user.profile?.profilePictureUrl || `https://placehold.co/32x32.png?text=${getInitials(user.name)}`} alt={user.name} data-ai-hint="profile avatar"/>
                   <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">User menu</span>
@@ -204,4 +196,3 @@ export function AppHeader() {
     </header>
   );
 }
-
