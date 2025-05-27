@@ -158,10 +158,10 @@ export default function MessagesPage() {
           {userChats.map(chat => {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
             const lastMessageContent = chat.lastMessage?.content;
-            // Truncate preview text to around 25 characters
+            // Truncate preview text to around 20 characters
             const previewText = lastMessageContent 
-              ? (lastMessageContent.length > 25 
-                  ? lastMessageContent.substring(0, 25) + "..." 
+              ? (lastMessageContent.length > 20 
+                  ? lastMessageContent.substring(0, 20) + "..." 
                   : lastMessageContent)
               : "No messages yet";
 
@@ -211,17 +211,19 @@ export default function MessagesPage() {
                  <Link href={`/profile/${getParticipantDetails(selectedChat.participantIds, currentUser.id).userId || ''}`} className="text-xs text-primary hover:underline">View Profile</Link>
               </div>
             </div>
-            <ScrollArea className="flex-1 p-4 space-y-6"> {/* Changed space-y-4 to space-y-6 */}
-              {(selectedChat.messages || []).map(msg => (
-                <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow ${msg.senderId === currentUser.id ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
-                        <p className="text-sm whitespace-pre-line">{msg.content}</p>
-                        <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                    </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-              {(selectedChat.messages || []).length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
+            <ScrollArea className="flex-1 p-4"> 
+              <div className="space-y-6"> {/* Added space-y-6 here for individual messages */}
+                {(selectedChat.messages || []).map(msg => (
+                  <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow ${msg.senderId === currentUser.id ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
+                          <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                          <p className="text-xs mt-1 opacity-70 text-right">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+                {(selectedChat.messages || []).length === 0 && <p className="text-center text-muted-foreground">No messages in this chat yet. Say hello!</p>}
+              </div>
             </ScrollArea>
             <div className="p-4 border-t bg-card flex items-center gap-2">
               <Button variant="ghost" size="icon"><Paperclip className="h-5 w-5 text-muted-foreground"/></Button>
@@ -249,3 +251,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
