@@ -62,7 +62,10 @@ export function AppHeader() {
   }
 
   const handleNotificationItemClick = (href: string) => {
+    // In a real app, this might navigate or mark as read
+    // For now, a toast is fine for mock.
     toast({ title: "Notification Clicked", description: `Would navigate to ${href}`});
+    // router.push(href); // Uncomment if direct navigation is desired
   }
 
   const handleViewAllNotifications = () => {
@@ -71,13 +74,20 @@ export function AppHeader() {
 
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 shadow-sm">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b bg-card px-4 md:px-6 shadow-sm">
       {isMobile && (
          <SidebarTrigger className="md:hidden" />
       )}
-      {/* Removed the div with problematic inline styles around the Logo */}
-      <Link href="/home" className="flex items-center gap-2 mr-auto" aria-label={`${APP_NAME} Home`}>
-          <Logo type={isMobile ? 'icon' : 'full'} size={'lg'} />
+      <Link 
+        href="/home" 
+        className={cn(
+            "flex items-center gap-2 mr-auto",
+            "transform-gpu transition-transform duration-200 ease-in-out", // Base transform classes
+            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-40px]"
+        )}
+        aria-label={`${APP_NAME} Home`}
+      >
+          <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
       </Link>
       
       <div className="relative flex-initial w-full max-w-md hidden md:block">
@@ -87,7 +97,7 @@ export function AppHeader() {
           placeholder="Search profiles, posts, communities..."
           className="w-full rounded-lg bg-background pl-8"
           aria-label="Search"
-          onFocus={() => router.push('/search')}
+          onFocus={() => router.push('/search')} // Navigate to search page on focus
         />
       </div>
 
