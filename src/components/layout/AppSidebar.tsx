@@ -59,13 +59,31 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Link href="/home" onClick={closeMobileSidebar} className="flex items-center justify-center w-full" aria-label={`${APP_NAME} Home`}>
-            <Logo 
-              type={(state === 'collapsed' && !isMobile) ? 'icon' : 'banner'}
-              size={'md'} // md for banner (194x40), md for icon (32x32)
-              className={(state === 'collapsed' && !isMobile) ? '' : 'w-full px-2 py-1'} // Adjust padding for banner
-            />
-        </Link>
+      <Link
+  href="/home"
+  onClick={closeMobileSidebar}
+  className="flex items-center justify-center w-full"
+  aria-label={`${APP_NAME} Home`}
+>
+  <div
+    className={
+      (state === 'collapsed' && !isMobile)
+        ? 'transition-transform duration-300'
+        : 'w-full px-2 py-1'
+    }
+    style={
+      (state === 'collapsed' && !isMobile)
+        ? { transform: 'scale(2)', transformOrigin: 'center' }
+        : {}
+    }
+  >
+    <Logo
+      type={(state === 'collapsed' && !isMobile) ? 'icon' : 'banner'}
+      size="md"
+    />
+  </div>
+</Link>
+
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
