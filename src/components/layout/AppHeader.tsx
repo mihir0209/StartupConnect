@@ -3,7 +3,6 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { Logo } from '@/components/shared/Logo';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -15,13 +14,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Bell, LogOut, Search, Settings, UserCircle, Briefcase, MessageSquare, Users, SearchCode, ThumbsUp, UserCheck, Mail, AtSign, ExternalLink } from 'lucide-react';
+import { Bell, LogOut, Search, Settings, UserCircle, Briefcase, MessageSquare, Users as UsersIconLucide, SearchCode, ThumbsUp, UserCheck, Mail, AtSign, ExternalLink, PanelLeft } from 'lucide-react'; // Added PanelLeft
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { useRouter } from 'next/navigation';
 import { APP_NAME } from '@/lib/constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import type { User } from '@/lib/types'; // For userConnections in share dialog
 
 const mockNotifications = [
   { id: '1', type: 'like' as const, text: 'Alice Founder liked your recent post on InnovateX.', time: '2m ago', href:"/posts/post1" },
@@ -39,7 +39,7 @@ const getNotificationIcon = (type: typeof mockNotifications[number]['type']) => 
     case 'connection': return <UserCheck className="h-4 w-4 text-blue-500" />;
     case 'message': return <Mail className="h-4 w-4 text-orange-500" />;
     case 'mention': return <AtSign className="h-4 w-4 text-purple-500" />;
-    default: return <Bell className="h-4 w-4 text-muted-foreground" />; // Generic for system or unknown
+    default: return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
 };
 
@@ -56,14 +56,13 @@ export function AppHeader() {
   };
 
   const getInitials = (name: string = "") => {
+    if (!name) return 'U';
     const names = name.split(' ');
     if (names.length === 1) return names[0][0]?.toUpperCase() || 'U';
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
   }
 
   const handleNotificationItemClick = (href: string) => {
-    // In a real app, this might navigate or mark as read
-    // For now, a toast is fine for mock.
     toast({ title: "Notification Clicked", description: `Would navigate to ${href}`});
     // router.push(href); // Uncomment if direct navigation is desired
   }
@@ -75,34 +74,26 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b bg-card px-4 md:px-6 shadow-sm">
-      {isMobile && (
-         <SidebarTrigger className="md:hidden" />
-      )}
-      <Link
-        href="/home"
-        className={cn(
-            "flex items-center gap-2 mr-auto",
-            "transform-gpu transition-transform duration-200 ease-in-out",
-            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-25px]"
-        )}
-        aria-label={`${APP_NAME} Home`}
-      >
-          <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
-      </Link>
+      <SidebarTrigger>
+        <PanelLeft className="h-5 w-5" />
+      </SidebarTrigger>
       
-      <div className="relative flex-initial w-full max-w-md hidden md:block">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          id="header-search-input"
-          name="header-search-input"
-          type="search"
-          placeholder="Search profiles, posts, communities..."
-          className="w-full rounded-lg bg-background pl-8"
-          aria-label="Search"
-          onFocus={() => router.push('/search')} 
-        />
+      <div className={cn(
+          "relative flex-grow md:ml-4", // md:ml-4 ensures space from sidebar trigger on desktop
+          isMobile ? "max-w-full" : "max-w-md" // Allow search to take more space on mobile if needed
+      )}>
+         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+         <Input
+           id="header-search-input"
+           name="header-search-input"
+           type="search"
+           placeholder="Search profiles, posts, communities..."
+           className="w-full rounded-lg bg-background pl-8"
+           aria-label="Search"
+           onFocus={() => router.push('/search')} 
+         />
       </div>
-
+      
       <nav className="ml-auto flex items-center gap-2 md:gap-4">
         <Button variant="ghost" size="icon" className="rounded-full md:hidden" aria-label="Search" onClick={() => router.push('/search')}>
             <Search className="h-5 w-5" />
@@ -155,7 +146,7 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.profile?.profilePictureUrl || `https://placehold.co/32x32.png?text=${getInitials(user.name)}`} alt={user.name} data-ai-hint="profile avatar" />
+                  <AvatarImage src={user.profile?.profilePictureUrl || `https://placehold.co/32x32.png?text=${getInitials(user.name)}`} alt={user.name} data-ai-hint="profile avatar small"/>
                   <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">User menu</span>
@@ -184,7 +175,7 @@ export function AppHeader() {
                 <Briefcase className="mr-2 h-4 w-4" /> Home Feed
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/network')}>
-                <Users className="mr-2 h-4 w-4" /> My Network
+                <UsersIconLucide className="mr-2 h-4 w-4" /> My Network
               </DropdownMenuItem>
                <DropdownMenuItem onClick={() => router.push('/cofounders')}>
                 <SearchCode className="mr-2 h-4 w-4" /> Co-Founder Matching
@@ -206,3 +197,5 @@ export function AppHeader() {
     </header>
   );
 }
+
+    
