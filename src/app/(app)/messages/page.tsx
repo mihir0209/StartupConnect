@@ -155,8 +155,8 @@ export default function MessagesPage() {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
             const lastMessageContent = chat.lastMessage?.content;
             const previewText = lastMessageContent
-              ? (lastMessageContent.length > 25 // Truncate preview text
-                  ? lastMessageContent.substring(0, 25) + "..."
+              ? (lastMessageContent.length > 20 // Truncate preview text
+                  ? lastMessageContent.substring(0, 20) + "..."
                   : lastMessageContent)
               : "No messages yet";
 
