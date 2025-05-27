@@ -78,7 +78,7 @@ export function AppHeader() {
          <SidebarTrigger className="md:hidden" />
       )}
       <Link href="/home" className="flex items-center gap-2 mr-auto md:mr-4" aria-label={`${APP_NAME} Home`}>
-        <Logo type={isMobile ? 'icon' : 'full'} />
+        <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
       </Link>
       
       <div className="relative flex-1 md:grow-0 md:flex-initial md:w-96 hidden md:block">
