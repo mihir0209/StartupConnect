@@ -3,27 +3,28 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState, useActionState } from "react"; // Added useActionState
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/shared/Logo";
-import { LogIn, Chrome, AlertCircle } from "lucide-react";
+import { LogIn, Chrome, AlertCircle, Linkedin } from "lucide-react"; // Added Linkedin
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 
 export function LoginForm() {
   const router = useRouter();
-  const { loginWithGoogle, loginWithEmailPassword: contextLoginEmail, user, isLoading: authLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmailPassword: contextLoginEmail, loginWithLinkedIn, user, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
 
 
   useEffect(() => {
@@ -55,6 +56,16 @@ export function LoginForm() {
     setIsGoogleLoading(false);
   };
 
+  const handleLinkedInLogin = async () => {
+    setError(null);
+    setIsLinkedInLoading(true);
+    const result = await loginWithLinkedIn();
+    if(!result.success) {
+      setError(result.error || "LinkedIn Sign-In failed.");
+    }
+    setIsLinkedInLoading(false);
+  };
+
 
   if (authLoading && !user) { 
     return (
@@ -79,7 +90,7 @@ export function LoginForm() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <Logo type="icon" size="lg"/>
+            <Logo type="icon" size="lg"/> {/* Increased size */}
           </div>
           <CardTitle className="text-2xl">Welcome!</CardTitle>
           <CardDescription>Sign in to access StartupConnect.</CardDescription>
@@ -117,7 +128,7 @@ export function LoginForm() {
             <Button 
               type="submit"
               className="w-full" 
-              disabled={isEmailLoading || isGoogleLoading || authLoading}
+              disabled={isEmailLoading || isGoogleLoading || isLinkedInLoading || authLoading}
             >
               {isEmailLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -143,7 +154,7 @@ export function LoginForm() {
             onClick={handleGoogleLogin} 
             variant="outline"
             className="w-full" 
-            disabled={isGoogleLoading || isEmailLoading || authLoading}
+            disabled={isGoogleLoading || isEmailLoading || isLinkedInLoading || authLoading}
           >
             {isGoogleLoading ? ( 
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -151,6 +162,19 @@ export function LoginForm() {
               <Chrome className="mr-2 h-4 w-4" />
             )}
             Sign in with Google
+          </Button>
+          <Button 
+            onClick={handleLinkedInLogin} 
+            variant="outline"
+            className="w-full" 
+            disabled={isLinkedInLoading || isGoogleLoading || isEmailLoading || authLoading}
+          >
+            {isLinkedInLoading ? ( 
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Linkedin className="mr-2 h-4 w-4 text-[#0077B5]" /> // LinkedIn color for icon
+            )}
+            Sign in with LinkedIn
           </Button>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2 text-center">
@@ -162,3 +186,4 @@ export function LoginForm() {
     </div>
   );
 }
+

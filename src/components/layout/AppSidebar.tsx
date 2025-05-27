@@ -62,7 +62,7 @@ export function AppSidebar() {
         <Link href="/home" onClick={closeMobileSidebar} className="flex items-center justify-center w-full" aria-label={`${APP_NAME} Home`}>
             <Logo 
               type={(state === 'collapsed' && !isMobile) ? 'icon' : 'banner'}
-              size={(state === 'collapsed' && !isMobile) ? 'md' : 'md'} // md size for banner gives 194x40
+              size={'md'} // md for banner (194x40), md for icon (32x32)
               className={(state === 'collapsed' && !isMobile) ? '' : 'w-full px-2 py-1'} // Adjust padding for banner
             />
         </Link>
@@ -138,3 +138,4 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
+

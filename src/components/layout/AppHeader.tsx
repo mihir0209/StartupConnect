@@ -62,8 +62,6 @@ export function AppHeader() {
   }
 
   const handleNotificationItemClick = (href: string) => {
-    // In a real app, this might navigate or mark as read
-    // For now, a toast is fine for mock.
     toast({ title: "Notification Clicked", description: `Would navigate to ${href}`});
     // router.push(href); // Uncomment if direct navigation is desired
   }
@@ -206,3 +204,4 @@ export function AppHeader() {
     </header>
   );
 }
+
