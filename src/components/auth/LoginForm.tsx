@@ -10,17 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Logo } from "@/components/shared/Logo";
-import { LogIn, Chrome, AlertCircle, Linkedin } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { LogIn, Chrome, Linkedin, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { APP_NAME } from "@/lib/constants";
 
 const BANNER_URL = "https://i.ibb.co/mrFXb2jD/Screenshot-2025-05-27-155445.png";
+const LOGIN_DESCRIPTION = `Sign in to access ${APP_NAME}.`;
 
 export function LoginForm() {
   const router = useRouter();
-  const { loginWithGoogle, loginWithEmailPassword: contextLoginEmail, loginWithLinkedIn, user, isLoading: authLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmailPassword, loginWithLinkedIn, user, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,15 +32,16 @@ export function LoginForm() {
   const [showCard, setShowCard] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
-  const [showDescription, setShowDescription] = useState(false);
+  const [startTypingDescription, setStartTypingDescription] = useState(false);
+  const [typedDescription, setTypedDescription] = useState("");
   const [showFormElements, setShowFormElements] = useState(false);
 
   useEffect(() => {
-    const timer0 = setTimeout(() => setShowCard(true), 50); // Card fade in
-    const timer1 = setTimeout(() => setShowBanner(true), 300); // Banner fade in (after card starts)
-    const timer2 = setTimeout(() => setShowTitle(true), 800); // Title fall/fade in (after banner starts)
-    const timer3 = setTimeout(() => setShowDescription(true), 1300); // Description fade in (after title)
-    const timer4 = setTimeout(() => setShowFormElements(true), 1700); // Form elements fade in
+    const timer0 = setTimeout(() => setShowCard(true), 50);
+    const timer1 = setTimeout(() => setShowBanner(true), 250); // Banner starts after card
+    const timer2 = setTimeout(() => setShowTitle(true), 700); // Title after banner starts
+    const timer3 = setTimeout(() => setStartTypingDescription(true), 1200); // Description typing starts after title
+    const timer4 = setTimeout(() => setShowFormElements(true), 1700); // Form elements while description is typing
 
     return () => {
       clearTimeout(timer0);
@@ -53,6 +53,15 @@ export function LoginForm() {
   }, []);
 
   useEffect(() => {
+    if (startTypingDescription && typedDescription.length < LOGIN_DESCRIPTION.length) {
+      const typingTimer = setTimeout(() => {
+        setTypedDescription(LOGIN_DESCRIPTION.substring(0, typedDescription.length + 1));
+      }, 50); // Adjust typing speed (milliseconds per character)
+      return () => clearTimeout(typingTimer);
+    }
+  }, [typedDescription, startTypingDescription]);
+
+  useEffect(() => {
     if (user && !authLoading) {
       router.push('/home');
     }
@@ -62,7 +71,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setIsEmailLoading(true);
-    const result = await contextLoginEmail(email, password);
+    const result = await loginWithEmailPassword(email, password);
     if (!result.success) {
       setError(result.error || "Login failed. Please check your credentials.");
     }
@@ -78,7 +87,7 @@ export function LoginForm() {
     }
     setIsGoogleLoading(false);
   };
-
+  
   const handleLinkedInLogin = async () => {
     setError(null);
     setIsLinkedInLoading(true);
@@ -112,8 +121,7 @@ export function LoginForm() {
         className={`w-full max-w-md shadow-xl overflow-hidden transition-opacity duration-500 ease-in-out ${showCard ? "opacity-100" : "opacity-0"}`}
       >
         <div
-          className={`relative w-full h-24 transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
-          style={{ transitionDelay: showBanner ? '0ms' : '0ms' }}
+          className={`relative w-full h-28 transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
         >
           <Image
             src={BANNER_URL}
@@ -125,26 +133,22 @@ export function LoginForm() {
           />
         </div>
 
-        <CardHeader className="space-y-1 text-center pt-6">
-          <div className={`flex justify-center mb-4 transition-all duration-700 ease-out ${showTitle ? "opacity-100 scale-125" : "opacity-0 scale-100"}`}>
-            <Logo type="full" size="lg" />
-          </div>
+        <CardHeader className="space-y-2 text-center pt-6">
+          {/* Logo removed from here */}
           <CardTitle
-            className={`text-2xl transition-all duration-1000 ease-out ${showTitle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-5"}`}
-            style={{ transitionDelay: showTitle ? '0ms' : '0ms' }}
+            className={`text-3xl font-bold transition-all duration-1000 ease-out ${showTitle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-5"}`}
           >
             Welcome!
           </CardTitle>
           <CardDescription
-            className={`transition-opacity duration-700 ease-in-out ${showDescription ? "opacity-100" : "opacity-0"}`}
-            style={{ transitionDelay: showDescription ? '0ms' : '0ms' }}
+            className={`transition-opacity duration-300 ease-in-out min-h-[20px] ${startTypingDescription ? "opacity-100" : "opacity-0"}`}
           >
-            Sign in to access {APP_NAME}.
+            {typedDescription}
+            <span className="animate-ping">|</span> {/* Blinking cursor */}
           </CardDescription>
         </CardHeader>
         <CardContent
           className={`space-y-4 transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
-           style={{ transitionDelay: showFormElements ? '0ms' : '0ms' }}
         >
           {error && (
             <Alert variant="destructive">
@@ -231,7 +235,6 @@ export function LoginForm() {
         </CardContent>
         <CardFooter 
             className={`flex flex-col space-y-2 text-center transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
-            style={{ transitionDelay: showFormElements ? '0ms' : '0ms' }}
         >
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account? <Link href="/signup" legacyBehavior><a className="font-medium text-primary hover:underline">Sign Up</a></Link>
