@@ -1,4 +1,4 @@
-export const APP_NAME = "Nexus Startup";
+export const APP_NAME = "StartupConnect";
 
 export enum UserRole {
   Founder = "Startup Founder",

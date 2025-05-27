@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
+import { APP_NAME } from '@/lib/constants';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Nexus Startup',
+  title: APP_NAME,
   description: 'Networking platform for the startup ecosystem.',
 };
 
