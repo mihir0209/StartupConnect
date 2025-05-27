@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { APP_NAME } from '@/lib/constants';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const mockNotifications = [
   { id: '1', type: 'like' as const, text: 'Alice Founder liked your recent post on InnovateX.', time: '2m ago', href:"/posts/post1" },
@@ -46,7 +47,7 @@ export function AppHeader() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const { isMobile } = useSidebar(); // Removed toggleSidebar as it's used via SidebarTrigger
+  const { isMobile } = useSidebar();
 
 
   const handleLogout = async () => {
@@ -61,14 +62,11 @@ export function AppHeader() {
   }
 
   const handleNotificationItemClick = (href: string) => {
-    // For now, just toast. Later, this can navigate or mark as read.
     toast({ title: "Notification Clicked", description: `Would navigate to ${href}`});
-    // router.push(href);
   }
 
   const handleViewAllNotifications = () => {
     toast({ title: "Feature Coming Soon", description: "A dedicated notifications page will be available later."});
-    // router.push('/notifications');
   }
 
 
@@ -77,28 +75,17 @@ export function AppHeader() {
       {isMobile && (
          <SidebarTrigger className="md:hidden" />
       )}
-      <Link href="/home" className="flex items-center gap-2 mr-auto md:mr-4" aria-label={`${APP_NAME} Home`}>
-  <div
-    style={{
-      transform: 'scale(1.5)',
-      transformOrigin: 'left center',
-      marginLeft: '-40px',
-      paddingRight: '30px',
-    }}
-  >
-    <Logo type={isMobile ? 'icon' : 'full'} size={isMobile ? 'md' : 'lg'} />
-  </div>
-</Link>
-
-
-
+      {/* Removed the div with problematic inline styles around the Logo */}
+      <Link href="/home" className="flex items-center gap-2 mr-auto" aria-label={`${APP_NAME} Home`}>
+          <Logo type={isMobile ? 'icon' : 'full'} size={'lg'} />
+      </Link>
       
-      <div className="relative flex-1 md:grow-0 md:flex-initial md:w-96 hidden md:block">
+      <div className="relative flex-initial w-full max-w-md hidden md:block">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Search profiles, posts, communities..."
-          className="w-full rounded-lg bg-background pl-8 md:w-full"
+          className="w-full rounded-lg bg-background pl-8"
           aria-label="Search"
           onFocus={() => router.push('/search')}
         />
