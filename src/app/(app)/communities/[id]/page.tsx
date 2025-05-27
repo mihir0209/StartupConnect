@@ -89,9 +89,8 @@ export default function CommunityDetailPage({ params }: { params: { id: string }
           <Image 
             src={`https://placehold.co/1200x300.png?text=${encodeURIComponent(community.name)}`} 
             alt={`${community.name} banner`} 
-            layout="fill" 
-            objectFit="cover" 
-            className="opacity-80"
+            fill
+            className="opacity-80 object-cover"
             data-ai-hint={`${community.industry} group banner`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-6 flex flex-col justify-end">

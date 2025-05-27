@@ -73,9 +73,9 @@ export function PostCard({ post: initialPost }: PostCardProps) {
   } else {
     authorForDisplay = {
       id: currentPost.authorId,
-      name: "Nexus User",
+      name: "StartupConnect User",
       role: "Member", 
-      profile: { profilePictureUrl: `https://placehold.co/40x40.png?text=N` },
+      profile: { profilePictureUrl: `https://placehold.co/40x40.png?text=S` },
     };
   }
   
@@ -123,7 +123,6 @@ export function PostCard({ post: initialPost }: PostCardProps) {
       if (sendResult.success) {
         toast({ title: "Shared!", description: `Post sent to ${connection.name}.` });
         setIsShareDialogOpen(false);
-        // router.push(`/messages?chatWith=${connection.id}&chatId=${chatResult.chatId}`); // Navigation removed as per user request
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not send message." });
       }
@@ -139,12 +138,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
   };
 
   const handleDeletePost = () => {
-    // For a mock, we might remove it from a global store or just notify
     toast({ title: "Feature Info", description: "Deleting posts will be available soon. For now, imagine it's gone!"});
-    // To actually remove from UI if mockPosts is part of a global state or prop:
-    // 1. Call an action that removes post from mockPosts.
-    // 2. Trigger a re-fetch or re-render of the feed.
-    // For now, a toast is sufficient.
   };
   
   const handleReportPost = () => {
@@ -182,6 +176,10 @@ export function PostCard({ post: initialPost }: PostCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DialogHeader>
+                <DialogTitle>Share Post</DialogTitle>
+                <DialogDescription>Send this post to your connections.</DialogDescription>
+              </DialogHeader>
               {loggedInUser && loggedInUser.id === currentPost.authorId && (
                 <>
                   <DropdownMenuItem onClick={handleEditPost}>
@@ -214,8 +212,8 @@ export function PostCard({ post: initialPost }: PostCardProps) {
             <Image 
               src={currentPost.imageUrl} 
               alt="Post image" 
-              layout="fill" 
-              objectFit="cover" 
+              fill
+              className="object-cover"
               data-ai-hint={currentPost.dataAiHint || "social media content"}/>
           </div>
         )}
@@ -285,7 +283,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
               } else if (loggedInUser && loggedInUser.id === comment.authorId) {
                   commentAuthorDisplay = { name: loggedInUser.name, profilePictureUrl: loggedInUser.profile.profilePictureUrl };
               } else {
-                  commentAuthorDisplay = { name: "Nexus User", profilePictureUrl: `https://placehold.co/32x32.png?text=N` };
+                  commentAuthorDisplay = { name: "StartupConnect User", profilePictureUrl: `https://placehold.co/32x32.png?text=S` };
               }
 
               return (

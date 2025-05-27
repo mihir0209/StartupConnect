@@ -151,8 +151,8 @@ export default function UserProfilePage({ params: paramsPromise }: { params: { u
            <Image 
              src={defaultBannerUrl} 
              alt={`${viewedUser.name}'s banner`} 
-             layout="fill" 
-             objectFit="cover" 
+             fill
+             className="object-cover"
              data-ai-hint="startup banner professional" 
              priority
            />

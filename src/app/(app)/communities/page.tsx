@@ -37,8 +37,8 @@ export default function CommunitiesPage() {
                 <Image 
                     src={`https://placehold.co/400x160.png?text=${encodeURIComponent(community.name.substring(0,15))}`} 
                     alt={`${community.name} banner`} 
-                    layout="fill" 
-                    objectFit="cover"
+                    fill
+                    className="object-cover"
                     data-ai-hint={`${community.industry} community`} 
                 />
               </div>
