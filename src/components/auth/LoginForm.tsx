@@ -13,6 +13,7 @@ import { Logo } from "@/components/shared/Logo";
 import { LogIn, Chrome, AlertCircle, Linkedin } from "lucide-react"; // Added Linkedin
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { APP_NAME } from "@/lib/constants";
 
 
 export function LoginForm() {
@@ -90,10 +91,10 @@ export function LoginForm() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <Logo type="icon" size="lg"/> {/* Increased size */}
+            <Logo type="full" size="lg"/>
           </div>
           <CardTitle className="text-2xl">Welcome!</CardTitle>
-          <CardDescription>Sign in to access StartupConnect.</CardDescription>
+          <CardDescription>Sign in to access {APP_NAME}.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
@@ -107,6 +108,7 @@ export function LoginForm() {
               <Label htmlFor="email">Email</Label>
               <Input 
                 id="email" 
+                name="email"
                 type="email" 
                 placeholder="name@example.com" 
                 value={email}
@@ -118,6 +120,7 @@ export function LoginForm() {
               <Label htmlFor="password">Password</Label>
               <Input 
                 id="password" 
+                name="password"
                 type="password" 
                 placeholder="********"
                 value={password}
@@ -186,4 +189,3 @@ export function LoginForm() {
     </div>
   );
 }
-
