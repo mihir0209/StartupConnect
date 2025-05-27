@@ -13,13 +13,14 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Chrome, Linkedin, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { APP_NAME } from "@/lib/constants";
+import { Logo } from "@/components/shared/Logo";
 
 const BANNER_URL = "https://i.ibb.co/mrFXb2jD/Screenshot-2025-05-27-155445.png";
 const LOGIN_DESCRIPTION = `Sign in to access ${APP_NAME}.`;
 
 export function LoginForm() {
   const router = useRouter();
-  const { loginWithGoogle, loginWithEmailPassword, loginWithLinkedIn, user, isLoading: authLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmailPassword, loginWithLinkedIn, user, isLoading: authLoading, profileCompletionRequired, pendingFirebaseUser } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +29,6 @@ export function LoginForm() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
 
-  // Animation states
   const [showCard, setShowCard] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
@@ -38,10 +38,10 @@ export function LoginForm() {
 
   useEffect(() => {
     const timer0 = setTimeout(() => setShowCard(true), 50);
-    const timer1 = setTimeout(() => setShowBanner(true), 250); // Banner starts after card
-    const timer2 = setTimeout(() => setShowTitle(true), 700); // Title after banner starts
-    const timer3 = setTimeout(() => setStartTypingDescription(true), 1200); // Description typing starts after title
-    const timer4 = setTimeout(() => setShowFormElements(true), 1700); // Form elements while description is typing
+    const timer1 = setTimeout(() => setShowBanner(true), 250);
+    const timer2 = setTimeout(() => setShowTitle(true), 700);
+    const timer3 = setTimeout(() => setStartTypingDescription(true), 1200);
+    const timer4 = setTimeout(() => setShowFormElements(true), 1700 + LOGIN_DESCRIPTION.length * 30); // Delay form elements until typing is likely done
 
     return () => {
       clearTimeout(timer0);
@@ -56,16 +56,20 @@ export function LoginForm() {
     if (startTypingDescription && typedDescription.length < LOGIN_DESCRIPTION.length) {
       const typingTimer = setTimeout(() => {
         setTypedDescription(LOGIN_DESCRIPTION.substring(0, typedDescription.length + 1));
-      }, 50); // Adjust typing speed (milliseconds per character)
+      }, 30);
       return () => clearTimeout(typingTimer);
     }
   }, [typedDescription, startTypingDescription]);
 
   useEffect(() => {
-    if (user && !authLoading) {
-      router.push('/home');
+    if (!authLoading) {
+      if (user) {
+        router.push('/home');
+      } else if (profileCompletionRequired && pendingFirebaseUser) {
+        router.push('/settings/profile-setup');
+      }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, profileCompletionRequired, pendingFirebaseUser, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +79,7 @@ export function LoginForm() {
     if (!result.success) {
       setError(result.error || "Login failed. Please check your credentials.");
     }
+    // Redirection handled by useEffect
     setIsEmailLoading(false);
   };
 
@@ -85,6 +90,7 @@ export function LoginForm() {
     if (!result.success) {
       setError(result.error || "Google Sign-In failed.");
     }
+    // Redirection handled by useEffect
     setIsGoogleLoading(false);
   };
   
@@ -95,25 +101,19 @@ export function LoginForm() {
     if (!result.success) {
       setError(result.error || "LinkedIn Sign-In failed.");
     }
+    // Redirection handled by useEffect
     setIsLinkedInLoading(false);
   };
 
-  if (authLoading && !user) {
+  if (authLoading && !user && !profileCompletionRequired) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
-
-  if (user) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-2">Redirecting...</p>
-      </div>
-    );
-  }
+  // If profile completion is required, redirection is handled by useEffect or AppLayout
+  // If user is logged in, redirection is handled by useEffect
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 overflow-hidden">
@@ -121,7 +121,7 @@ export function LoginForm() {
         className={`w-full max-w-md shadow-xl overflow-hidden transition-opacity duration-500 ease-in-out ${showCard ? "opacity-100" : "opacity-0"}`}
       >
         <div
-          className={`relative w-full h-28 transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
+          className={`relative w-full h-28 bg-muted overflow-hidden transition-opacity duration-1000 ease-in-out ${showBanner ? "opacity-100" : "opacity-0"}`}
         >
           <Image
             src={BANNER_URL}
@@ -134,7 +134,6 @@ export function LoginForm() {
         </div>
 
         <CardHeader className="space-y-2 text-center pt-6">
-          {/* Logo removed from here */}
           <CardTitle
             className={`text-3xl font-bold transition-all duration-1000 ease-out ${showTitle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-5"}`}
           >
@@ -144,7 +143,7 @@ export function LoginForm() {
             className={`transition-opacity duration-300 ease-in-out min-h-[20px] ${startTypingDescription ? "opacity-100" : "opacity-0"}`}
           >
             {typedDescription}
-            <span className="animate-ping">|</span> {/* Blinking cursor */}
+            {(startTypingDescription && typedDescription.length < LOGIN_DESCRIPTION.length) && <span className="animate-ping ml-0.5">|</span>}
           </CardDescription>
         </CardHeader>
         <CardContent
@@ -156,6 +155,46 @@ export function LoginForm() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          <Button
+            onClick={handleLinkedInLogin}
+            variant="outline"
+            className="w-full"
+            disabled={isLinkedInLoading || isGoogleLoading || isEmailLoading || authLoading}
+          >
+            {isLinkedInLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Linkedin className="mr-2 h-4 w-4 text-[#0077B5]" />
+            )}
+            Sign in with LinkedIn
+          </Button>
+
+          <Button
+            onClick={handleGoogleLogin}
+            variant="outline"
+            className="w-full"
+            disabled={isGoogleLoading || isEmailLoading || isLinkedInLoading || authLoading}
+          >
+            {isGoogleLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Chrome className="mr-2 h-4 w-4" />
+            )}
+            Sign in with Google
+          </Button>
+          
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -194,44 +233,6 @@ export function LoginForm() {
               Sign In with Email
             </Button>
           </form>
-
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleGoogleLogin}
-            variant="outline"
-            className="w-full"
-            disabled={isGoogleLoading || isEmailLoading || isLinkedInLoading || authLoading}
-          >
-            {isGoogleLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Chrome className="mr-2 h-4 w-4" />
-            )}
-            Sign in with Google
-          </Button>
-          <Button
-            onClick={handleLinkedInLogin}
-            variant="outline"
-            className="w-full"
-            disabled={isLinkedInLoading || isGoogleLoading || isEmailLoading || authLoading}
-          >
-            {isLinkedInLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Linkedin className="mr-2 h-4 w-4 text-[#0077B5]" />
-            )}
-            Sign in with LinkedIn
-          </Button>
         </CardContent>
         <CardFooter 
             className={`flex flex-col space-y-2 text-center transition-opacity duration-700 ease-in-out ${showFormElements ? "opacity-100" : "opacity-0"}`}
