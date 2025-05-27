@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -58,8 +59,12 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Link href="/home" onClick={closeMobileSidebar} className="flex items-center gap-2" aria-label={`${APP_NAME} Home`}>
-            <Logo iconOnly={state === 'collapsed' && !isMobile} />
+        <Link href="/home" onClick={closeMobileSidebar} className="flex items-center justify-center w-full" aria-label={`${APP_NAME} Home`}>
+            <Logo 
+              type={(state === 'collapsed' && !isMobile) ? 'icon' : 'banner'}
+              size={(state === 'collapsed' && !isMobile) ? 'md' : 'md'} // md size for banner gives 194x40
+              className={(state === 'collapsed' && !isMobile) ? '' : 'w-full px-2 py-1'} // Adjust padding for banner
+            />
         </Link>
       </SidebarHeader>
       <SidebarContent className="p-2">

@@ -46,7 +46,7 @@ export function AppHeader() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const { toggleSidebar, isMobile } = useSidebar();
+  const { isMobile } = useSidebar(); // Removed toggleSidebar as it's used via SidebarTrigger
 
 
   const handleLogout = async () => {
@@ -78,7 +78,7 @@ export function AppHeader() {
          <SidebarTrigger className="md:hidden" />
       )}
       <Link href="/home" className="flex items-center gap-2 mr-auto md:mr-4" aria-label={`${APP_NAME} Home`}>
-        <Logo iconOnly={isMobile} />
+        <Logo type={isMobile ? 'icon' : 'full'} />
       </Link>
       
       <div className="relative flex-1 md:grow-0 md:flex-initial md:w-96 hidden md:block">

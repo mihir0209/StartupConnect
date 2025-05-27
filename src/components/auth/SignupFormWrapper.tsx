@@ -100,7 +100,7 @@ export function SignupFormWrapper() {
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <Logo />
+            <Logo type="icon" size="lg"/>
           </div>
           <CardTitle className="text-2xl">{stepTitles[currentStep]}</CardTitle>
           <CardDescription>

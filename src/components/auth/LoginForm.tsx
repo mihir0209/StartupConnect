@@ -13,7 +13,7 @@ import { Logo } from "@/components/shared/Logo";
 import { LogIn, Chrome, AlertCircle } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-// import { loginUser } from "@/lib/actions/auth.actions"; // No longer using server action directly here
+
 
 export function LoginForm() {
   const router = useRouter();
@@ -28,8 +28,6 @@ export function LoginForm() {
 
   useEffect(() => {
     if (user && !authLoading) {
-      // const redirectPath = localStorage.getItem('redirectAfterLogin') || '/home';
-      // localStorage.removeItem('redirectAfterLogin');
       router.push('/home');
     }
   }, [user, authLoading, router]);
@@ -38,7 +36,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setIsEmailLoading(true);
-    const result = await contextLoginEmail(email, password); // Use context method
+    const result = await contextLoginEmail(email, password); 
     if (!result.success) {
       setError(result.error || "Login failed. Please check your credentials.");
     }
@@ -58,7 +56,7 @@ export function LoginForm() {
   };
 
 
-  if (authLoading && !user) { // Simplified loading state
+  if (authLoading && !user) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -66,8 +64,6 @@ export function LoginForm() {
     );
   }
   
-  // If user becomes available (even if authLoading is briefly true), redirect is handled by useEffect
-  // This prevents showing the form briefly after successful login before redirection.
    if (user) { 
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
@@ -83,10 +79,10 @@ export function LoginForm() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <Logo />
+            <Logo type="icon" size="lg"/>
           </div>
           <CardTitle className="text-2xl">Welcome!</CardTitle>
-          <CardDescription>Sign in to access Nexus Startup.</CardDescription>
+          <CardDescription>Sign in to access StartupConnect.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && (
