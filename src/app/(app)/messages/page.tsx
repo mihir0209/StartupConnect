@@ -158,7 +158,7 @@ export default function MessagesPage() {
           {userChats.map(chat => {
             const details = getParticipantDetails(chat.participantIds, currentUser.id);
             const lastMessageContent = chat.lastMessage?.content;
-            // Truncate preview text to around 20 characters
+            // Truncate preview text
             const previewText = lastMessageContent 
               ? (lastMessageContent.length > 20 
                   ? lastMessageContent.substring(0, 20) + "..." 
@@ -175,7 +175,7 @@ export default function MessagesPage() {
                   <AvatarImage src={details.avatar} alt={details.name} data-ai-hint="profile avatar small"/>
                   <AvatarFallback>{getInitials(details.name)}</AvatarFallback>
                 </Avatar>
-                <div className="flex-1 overflow-hidden"> {/* Added overflow-hidden here */}
+                <div className="flex-1 overflow-hidden">
                   <p className="font-semibold truncate">{details.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{previewText}</p>
                 </div>
@@ -212,7 +212,7 @@ export default function MessagesPage() {
               </div>
             </div>
             <ScrollArea className="flex-1 p-4"> 
-              <div className="space-y-6"> {/* Added space-y-6 here for individual messages */}
+              <div className="space-y-6">
                 {(selectedChat.messages || []).map(msg => (
                   <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow ${msg.senderId === currentUser.id ? 'bg-primary text-primary-foreground' : 'bg-card border'}`}>
@@ -228,6 +228,8 @@ export default function MessagesPage() {
             <div className="p-4 border-t bg-card flex items-center gap-2">
               <Button variant="ghost" size="icon"><Paperclip className="h-5 w-5 text-muted-foreground"/></Button>
               <Input
+                id="message-input"
+                name="message-input"
                 placeholder="Type a message..."
                 className="flex-1"
                 value={newMessage}
@@ -251,4 +253,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-

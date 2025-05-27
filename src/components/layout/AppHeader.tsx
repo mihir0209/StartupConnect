@@ -82,8 +82,8 @@ export function AppHeader() {
         href="/home"
         className={cn(
             "flex items-center gap-2 mr-auto",
-            "transform-gpu transition-transform duration-200 ease-in-out", // Base transform classes
-            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-25px]" // Adjusted ml-[-40px] to ml-[-25px]
+            "transform-gpu transition-transform duration-200 ease-in-out",
+            isMobile ? "scale-[2.0]" : "md:scale-150 md:ml-[-25px]"
         )}
         aria-label={`${APP_NAME} Home`}
       >
@@ -93,11 +93,13 @@ export function AppHeader() {
       <div className="relative flex-initial w-full max-w-md hidden md:block">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
+          id="header-search-input"
+          name="header-search-input"
           type="search"
           placeholder="Search profiles, posts, communities..."
           className="w-full rounded-lg bg-background pl-8"
           aria-label="Search"
-          onFocus={() => router.push('/search')} // Navigate to search page on focus
+          onFocus={() => router.push('/search')} 
         />
       </div>
 
