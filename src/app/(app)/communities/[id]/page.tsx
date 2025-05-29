@@ -12,25 +12,28 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react"; // Added 'use'
 import type { Community } from "@/lib/types";
 
 
-export default function CommunityDetailPage({ params }: { params: { id: string } }) {
+export default function CommunityDetailPage({ params: paramsPromise }: { params: { id: string } }) {
+  const params = use(paramsPromise); // Resolve params promise
+  const { id: communityId } = params; // Destructure id
+
   const { user: loggedInUser, joinCommunity, leaveCommunity } = useAuth();
   const { toast } = useToast();
-  const [community, setCommunity] = useState<Community | null | undefined>(() => mockCommunities.find(c => c.id === params.id));
+  const [community, setCommunity] = useState<Community | null | undefined>(() => mockCommunities.find(c => c.id === communityId));
   
   // To refresh membership status
   const [isMember, setIsMember] = useState(false);
 
   useEffect(() => {
-    const currentCommunity = mockCommunities.find(c => c.id === params.id);
+    const currentCommunity = mockCommunities.find(c => c.id === communityId);
     setCommunity(currentCommunity);
     if (currentCommunity && loggedInUser) {
       setIsMember(currentCommunity.members.includes(loggedInUser.id));
     }
-  }, [params.id, loggedInUser, mockCommunities]); // Re-check if any of these change
+  }, [communityId, loggedInUser, mockCommunities]); // Re-check if any of these change
 
   // Filter posts for this community (mock logic)
   const communityPosts = mockPosts.filter(p => Math.random() > 0.5).slice(0,2); 
@@ -90,7 +93,7 @@ export default function CommunityDetailPage({ params }: { params: { id: string }
             src={`https://placehold.co/1200x300.png?text=${encodeURIComponent(community.name)}`} 
             alt={`${community.name} banner`} 
             fill
-            className="opacity-80 object-cover"
+            className="object-cover opacity-80" // Removed objectFit, fill handles it with object-cover class
             data-ai-hint={`${community.industry} group banner`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-6 flex flex-col justify-end">
