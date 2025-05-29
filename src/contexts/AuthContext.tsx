@@ -6,19 +6,19 @@ import { UserRole, INDUSTRIES, FUNDING_STAGES, EXPERTISE_AREAS, APP_NAME } from 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { mockUsers, mockCommunities, mockPosts, mockChats, mockCofounderListings } from '@/lib/mockData';
 
-// Simplified structure for pending user info, not tied to Firebase
+// Simplified structure for pending user info, not tied to any specific auth provider SDK
 interface PendingNewUserInfo {
   uid: string; // This will be a mock-generated ID
   email: string | null;
   displayName: string | null;
-  provider?: 'google' | 'email'; // To optionally know the source
+  provider?: 'google' | 'email' | 'linkedin'; // To optionally know the source
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   profileCompletionRequired: boolean;
-  pendingNewUserInfo: PendingNewUserInfo | null;
+  pendingNewUserInfo: PendingNewUserInfo | null; // Renamed
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   loginWithLinkedIn: () => Promise<{ success: boolean; error?: string }>;
   loginWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -41,15 +41,15 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const generateMockId = (prefix: string = 'mockId_') => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
-const LOCAL_STORAGE_USER_KEY = `${APP_NAME.toLowerCase()}-mock-user`;
-const LOCAL_STORAGE_PENDING_USER_KEY = `${APP_NAME.toLowerCase()}-pending-new-user`;
+const LOCAL_STORAGE_USER_KEY = `${APP_NAME.toLowerCase().replace(/\s+/g, '-')}-mock-user`;
+const LOCAL_STORAGE_PENDING_USER_KEY = `${APP_NAME.toLowerCase().replace(/\s+/g, '-')}-pending-new-user`;
 
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileCompletionRequired, setProfileCompletionRequired] = useState(false);
-  const [pendingNewUserInfo, setPendingNewUserInfo] = useState<PendingNewUserInfo | null>(null);
+  const [pendingNewUserInfo, setPendingNewUserInfo] = useState<PendingNewUserInfo | null>(null); // Renamed
 
   const updateUserInMockDataArray = (updatedUser: User) => {
     const userIndex = mockUsers.findIndex(u => u.id === updatedUser.id);
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(currentUser));
       updateUserInMockDataArray(currentUser);
       setProfileCompletionRequired(false);
-      setPendingNewUserInfo(null);
+      setPendingNewUserInfo(null); // Clear pending info when user is set
       localStorage.removeItem(LOCAL_STORAGE_PENDING_USER_KEY);
     } else {
       localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
@@ -81,11 +81,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (storedUserJson) {
         const storedUser = JSON.parse(storedUserJson) as User;
-         // Ensure mockUsers array reflects the stored user, especially for connections/requests
         const liveMockUser = mockUsers.find(u => u.id === storedUser.id);
         if (liveMockUser) {
              const mergedUser = {
-                ...liveMockUser, // Base from mockData (for up-to-date connections, requests)
+                ...liveMockUser, 
                 name: storedUser.name,
                 email: storedUser.email,
                 role: storedUser.role,
@@ -93,9 +92,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
              };
             setUser(mergedUser);
         } else {
-            // Stored user not in current mockUsers, use stored version but this might miss mockData updates
             setUser(storedUser);
-            mockUsers.push(storedUser); // Add to mockUsers if missing
+            mockUsers.push(storedUser); 
         }
       } else if (storedPendingUserJson) {
         const pendingInfo = JSON.parse(storedPendingUserJson) as PendingNewUserInfo;
@@ -115,19 +113,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     uid: string,
     email: string | null,
     displayName: string | null,
-    provider?: 'google' | 'email'
+    provider?: 'google' | 'email' | 'linkedin' // Added linkedin here
   ): boolean => {
     const existingUser = mockUsers.find(u => u.id === uid || (email && u.email === email));
     if (existingUser) {
       updateUserStateAndStorage(existingUser);
-      return false; // User exists, no completion needed
+      return false; 
     } else {
       const newPendingInfo: PendingNewUserInfo = { uid, email, displayName, provider };
       setPendingNewUserInfo(newPendingInfo);
       localStorage.setItem(LOCAL_STORAGE_PENDING_USER_KEY, JSON.stringify(newPendingInfo));
       setProfileCompletionRequired(true);
       setUser(null);
-      return true; // New user, completion needed
+      return true; 
     }
   };
 
@@ -137,17 +135,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const mockGoogleEmail = `googleuser${Math.floor(Math.random() * 10000)}@example.com`;
     const mockGoogleName = 'Google User ' + Math.floor(Math.random() * 100);
 
-    if (checkAndHandleNewUserFlow(mockGoogleUID, mockGoogleEmail, mockGoogleName, 'google')) {
-      // Profile completion flow will be triggered by AppLayout
-    }
+    checkAndHandleNewUserFlow(mockGoogleUID, mockGoogleEmail, mockGoogleName, 'google');
     setIsLoading(false);
     return { success: true };
   };
 
   const loginWithLinkedIn = async (): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    // For LinkedIn, we'll simulate direct login with a pre-defined or newly created full mock user
-    // as if LinkedIn provided all necessary info.
     let linkedInUser = mockUsers.find(u => u.email === 'expert@example.com'); // Try to find a specific mock user
     if (!linkedInUser) {
       const mockLinkedInUID = generateMockId('linkedin_');
@@ -155,7 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         id: mockLinkedInUID,
         email: `linkedin${Math.floor(Math.random() * 10000)}@example.com`,
         name: 'LinkedIn User ' + Math.floor(Math.random() * 100),
-        role: UserRole.IndustryExpert,
+        role: UserRole.IndustryExpert, // Default role for mock LinkedIn
         profile: {
           areaOfExpertise: EXPERTISE_AREAS[Math.floor(Math.random() * EXPERTISE_AREAS.length)],
           yearsOfExperience: Math.floor(Math.random() * 10) + 1,
@@ -167,9 +161,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         connections: [], connectionRequestsSent: [], connectionRequestsReceived: [],
         createdAt: new Date().toISOString(),
       };
-      mockUsers.push(linkedInUser); // Add to our mock DB
+      mockUsers.push(linkedInUser); 
     }
-    updateUserStateAndStorage(linkedInUser);
+    updateUserStateAndStorage(linkedInUser); // LinkedIn users directly log in, no profile completion for mock
     setIsLoading(false);
     return { success: true };
   };
@@ -179,13 +173,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const foundUserInMock = mockUsers.find(u => u.email === email);
 
     if (foundUserInMock) {
-      // Simulate password check - for mock, we assume it's correct
       updateUserStateAndStorage(foundUserInMock);
     } else {
-      // If user not found by email, treat as a potential new user if this flow was also for "sign up or login"
-      // For now, let's stick to strict login: user must exist.
+      // Simulate a new user if login fails but we want to guide them to signup/profile completion
+      const mockUID = generateMockId('email_fail_login_');
+      // For this mock, if login fails, we don't auto-create a pending user.
+      // The user must explicitly sign up.
       setIsLoading(false);
-      return { success: false, error: "Mock login failed: User not found or incorrect password." };
+      return { success: false, error: "Login failed: User not found or incorrect password." };
     }
     setIsLoading(false);
     return { success: true };
@@ -195,10 +190,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     if (mockUsers.some(u => u.email === email)) {
       setIsLoading(false);
-      return { success: false, error: "Mock user with this email already exists." };
+      return { success: false, error: "User with this email already exists." };
     }
 
-    const mockNewUID = generateMockId('email_');
+    const mockNewUID = generateMockId('email_signup_');
     const newPendingInfo: PendingNewUserInfo = {
       uid: mockNewUID,
       email: email,
@@ -208,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setPendingNewUserInfo(newPendingInfo);
     localStorage.setItem(LOCAL_STORAGE_PENDING_USER_KEY, JSON.stringify(newPendingInfo));
     setProfileCompletionRequired(true);
-    setUser(null); // Ensure no active user while pending completion
+    setUser(null); 
     setIsLoading(false);
     return { success: true, needsProfileCompletion: true };
   };
@@ -419,13 +414,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const sortedParticipantIds = [...participantIds].sort();
     
     let existingChat = mockChats.find(chat => {
-        if (sortedParticipantIds.length === 2 && !chat.isGroupChat) {
-            return chat.participantIds.length === 2 && 
-                   chat.participantIds.every(id => sortedParticipantIds.includes(id));
-        }
-        if (sortedParticipantIds.length > 2 && chat.isGroupChat) {
-             return chat.participantIds.length === sortedParticipantIds.length && 
-                    chat.participantIds.every(id => sortedParticipantIds.includes(id));
+        const currentChatParticipantIdsSorted = [...chat.participantIds].sort();
+        if (sortedParticipantIds.length === currentChatParticipantIdsSorted.length) {
+            return sortedParticipantIds.every((id, index) => id === currentChatParticipantIdsSorted[index]);
         }
         return false;
     });
@@ -441,7 +432,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       messages: [],
       lastMessage: undefined,
       isGroupChat: participantIds.length > 2,
-      ...(participantIds.length > 2 && { groupName: 'New Group' })
+      ...(participantIds.length > 2 && { groupName: 'New Group' }) // Could be more dynamic
     };
     mockChats.unshift(newChat);
     return { success: true, chatId: newChatId, chat: newChat };
@@ -464,8 +455,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     mockChats[chatIndex].messages.push(newMessageData);
     mockChats[chatIndex].lastMessage = newMessageData;
 
+    // Move the updated chat to the beginning of the list to show it as most recent
     const updatedChat = mockChats.splice(chatIndex, 1)[0];
     mockChats.unshift(updatedChat);
+    
+    // If the current user is the sender, update the user state to reflect the change in messages
+    // This is a simplified way to trigger re-renders where `user` is a dependency
+    if (user && user.id === senderId) {
+        setUser(prevUser => prevUser ? {...prevUser} : null);
+    }
     
     return { success: true, newMessage: newMessageData };
   };
@@ -483,3 +481,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+    

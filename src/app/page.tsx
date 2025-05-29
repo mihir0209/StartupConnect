@@ -7,12 +7,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
 export default function RootPage() {
-  const { user, isLoading, profileCompletionRequired, pendingFirebaseUser } = useAuth();
+  const { user, isLoading, profileCompletionRequired, pendingNewUserInfo } = useAuth(); // Renamed pendingFirebaseUser
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading) {
-      if (profileCompletionRequired && pendingFirebaseUser) {
+      if (profileCompletionRequired && pendingNewUserInfo) { // Use renamed variable
         router.replace('/settings/profile-setup');
       } else if (user) {
         router.replace('/home');
@@ -20,12 +20,13 @@ export default function RootPage() {
         router.replace('/login');
       }
     }
-  }, [user, isLoading, profileCompletionRequired, pendingFirebaseUser, router]);
+  }, [user, isLoading, profileCompletionRequired, pendingNewUserInfo, router]); // Use renamed variable
 
-  // Always show loader until redirection logic in useEffect completes
   return (
     <div className="flex h-screen items-center justify-center bg-background">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
     </div>
   );
 }
+
+    

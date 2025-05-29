@@ -53,8 +53,7 @@ const ExpertProfileSchemaSetup = BaseProfileSchemaSetup.extend({
 const ProfileSetupFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   role: z.nativeEnum(UserRole, { errorMap: () => ({ message: "Please select a role." }) }),
-  // Profile data will be dynamically added based on role
-}).catchall(z.any()); // Allow extra fields for role-specific profile data
+}).catchall(z.any()); 
 
 
 const getProfileFieldsForRole = (role: AppUserRole): ProfileField[] => {
@@ -98,13 +97,13 @@ const getProfileFieldsForRole = (role: AppUserRole): ProfileField[] => {
         { name: "servicesOffered", label: "Services Offered", type: "textarea" },
         ...commonFields,
       ];
-    default: // Should not happen if role is selected
+    default: 
       return commonFields;
   }
 };
 
 const getValidationSchemaForRole = (role?: AppUserRole) => {
-  if (!role) return BaseProfileSchemaSetup; // Fallback, though role should be selected
+  if (!role) return BaseProfileSchemaSetup; 
   switch (role) {
     case UserRole.Founder: return FounderProfileSchemaSetup;
     case UserRole.AngelInvestor:
@@ -116,7 +115,7 @@ const getValidationSchemaForRole = (role?: AppUserRole) => {
 
 
 export default function ProfileSetupPage() {
-  const { pendingNewUserInfo, completeNewUserProfile, isLoading: authLoading, user } = useAuth();
+  const { pendingNewUserInfo, completeNewUserProfile, isLoading: authLoading, user } = useAuth(); // Use renamed variable
   const { toast } = useToast();
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<AppUserRole | undefined>(undefined);
@@ -132,17 +131,16 @@ export default function ProfileSetupPage() {
       name: pendingNewUserInfo?.displayName || "",
       email: pendingNewUserInfo?.email || "", // Display only
       role: undefined,
-      // profileData defaults will be set by Zod .default() or by watching role
     },
   });
   
   const watchedRole = watch("role");
 
   useEffect(() => {
-    if (user && !authLoading) { // If user becomes available (profile completed), redirect
+    if (user && !authLoading) { 
       router.replace('/home');
     }
-    if (!pendingNewUserInfo && !authLoading && !user) { // If no pending user and no active user, redirect to login
+    if (!pendingNewUserInfo && !authLoading && !user) { 
       router.replace('/login');
     }
   }, [user, pendingNewUserInfo, authLoading, router]);
@@ -151,7 +149,6 @@ export default function ProfileSetupPage() {
     if (watchedRole) {
       setSelectedRole(watchedRole);
       setCurrentProfileFields(getProfileFieldsForRole(watchedRole));
-      // Reset with defaults for the new role
       const defaultProfileValues = getValidationSchemaForRole(watchedRole).parse({});
       reset({
         name: control._formValues.name || pendingNewUserInfo?.displayName || "",
@@ -177,7 +174,7 @@ export default function ProfileSetupPage() {
     }
 
     const { name, role, ...profileDataFromForm } = data;
-    delete profileDataFromForm.email; // email is not part of profileData
+    delete profileDataFromForm.email; 
 
     const result = await completeNewUserProfile({
       name,
@@ -193,7 +190,7 @@ export default function ProfileSetupPage() {
     }
   };
 
-  if (authLoading || (!pendingNewUserInfo && !user)) { // Show loader if auth is loading OR no pending/active user
+  if (authLoading || (!pendingNewUserInfo && !user)) { 
     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   
@@ -270,7 +267,7 @@ export default function ProfileSetupPage() {
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email (from provider)</Label>
+              <Label htmlFor="email">Email</Label>
               <Input id="email" value={pendingNewUserInfo?.email || "Not provided"} readOnly className="bg-muted/50" />
             </div>
             <div className="space-y-2">
@@ -321,3 +318,5 @@ export default function ProfileSetupPage() {
     </div>
   );
 }
+
+    

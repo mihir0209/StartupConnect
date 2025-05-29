@@ -10,28 +10,25 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { Loader2 } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { user, isLoading, profileCompletionRequired, pendingFirebaseUser } = useAuth();
+  const { user, isLoading, profileCompletionRequired, pendingNewUserInfo } = useAuth(); // Renamed pendingFirebaseUser
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading) {
-      if (profileCompletionRequired && pendingFirebaseUser) {
+      if (profileCompletionRequired && pendingNewUserInfo) { // Use renamed variable
         if (pathname !== '/settings/profile-setup') {
           router.replace('/settings/profile-setup');
         }
       } else if (!user) { 
-        // Only redirect to login if not already on auth pages and not in completion flow
         if (pathname !== '/login' && pathname !== '/signup' && !pathname.startsWith('/settings/profile-setup')) {
           router.replace('/login');
         }
       }
-      // If user is present and not needing completion, they can access app routes
     }
-  }, [user, isLoading, profileCompletionRequired, pendingFirebaseUser, router, pathname]);
+  }, [user, isLoading, profileCompletionRequired, pendingNewUserInfo, router, pathname]); // Use renamed variable
 
-  // Show loader if still loading, or if profile completion is required but not yet on the setup page
-  if (isLoading || (profileCompletionRequired && pendingFirebaseUser && pathname !== '/settings/profile-setup') || (!user && !profileCompletionRequired && pathname !== '/login' && pathname !== '/signup')) {
+  if (isLoading || (profileCompletionRequired && pendingNewUserInfo && pathname !== '/settings/profile-setup') || (!user && !profileCompletionRequired && pathname !== '/login' && pathname !== '/signup')) { // Use renamed variable
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -39,20 +36,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
   
-  // Allow profile setup page to render without full app layout if that's desired,
-  // or include it in the layout. For now, let's assume it uses the AppLayout.
-  // If user is null AND profileCompletionRequired is false, it means they should be on login/signup,
-  // which are outside this layout.
 
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
       <SidebarInset> 
-        <AppHeader />
-        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto"> {/* Applied styles directly here */}
+          <AppHeader /> {/* Moved AppHeader inside the scrollable content area if it shouldn't be sticky over sidebar */}
           {children}
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
+
+    
