@@ -1,27 +1,28 @@
 
 "use client";
 
-import type { User, ProfileData, BaseProfile, FounderProfile, InvestorProfile, ExpertProfile, UserRole as AppUserRole, Community, Chat, Message, ConnectionStatus, CofounderListing } from '@/lib/types';
+import type { User, ProfileData, BaseProfile, FounderProfile, InvestorProfile, ExpertProfile, UserRole as AppUserRole, Community, Chat, Message, CofounderListing } from '@/lib/types';
 import { UserRole, INDUSTRIES, FUNDING_STAGES, EXPERTISE_AREAS, APP_NAME } from '@/lib/constants';
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { mockUsers, mockCommunities, mockPosts, mockChats, mockCofounderListings } from '@/lib/mockData'; 
+import { mockUsers, mockCommunities, mockPosts, mockChats, mockCofounderListings } from '@/lib/mockData';
 
-// Simulate Firebase Auth user object structure (kept for potential future actual Firebase Auth integration parts)
-interface FirebaseUser {
-  uid: string;
+// Simplified structure for pending user info, not tied to Firebase
+interface PendingNewUserInfo {
+  uid: string; // This will be a mock-generated ID
   email: string | null;
   displayName: string | null;
+  provider?: 'google' | 'email'; // To optionally know the source
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   profileCompletionRequired: boolean;
-  pendingFirebaseUser: { uid: string; email?: string | null; displayName?: string | null } | null;
+  pendingNewUserInfo: PendingNewUserInfo | null;
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   loginWithLinkedIn: () => Promise<{ success: boolean; error?: string }>;
   loginWithEmailPassword: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signupWithEmailPassword: (email: string, password: string, name: string, role: AppUserRole, profileData: Partial<ProfileData>) => Promise<{ success: boolean; error?: string; user?: User }>;
+  signupWithEmailPassword: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string; needsProfileCompletion?: boolean }>;
   logout: () => Promise<void>;
   updateUserInContext: (updatedUserData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   completeNewUserProfile: (data: { name: string; role: AppUserRole; profileData: Partial<ProfileData> }) => Promise<{ success: boolean; error?: string; user?: User }>;
@@ -39,96 +40,105 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const generateMockId = (prefix: string = 'id') => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
+const generateMockId = (prefix: string = 'mockId_') => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
+const LOCAL_STORAGE_USER_KEY = `${APP_NAME.toLowerCase()}-mock-user`;
+const LOCAL_STORAGE_PENDING_USER_KEY = `${APP_NAME.toLowerCase()}-pending-new-user`;
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profileCompletionRequired, setProfileCompletionRequired] = useState(false);
-  const [pendingFirebaseUser, setPendingFirebaseUser] = useState<{ uid: string; email?: string | null; displayName?: string | null } | null>(null);
+  const [pendingNewUserInfo, setPendingNewUserInfo] = useState<PendingNewUserInfo | null>(null);
 
-  const updateUserInMockData = (updatedUser: User) => {
+  const updateUserInMockDataArray = (updatedUser: User) => {
     const userIndex = mockUsers.findIndex(u => u.id === updatedUser.id);
     if (userIndex !== -1) {
       mockUsers[userIndex] = updatedUser;
     } else {
-      mockUsers.push(updatedUser); // Add if new (e.g., after signup completion)
+      mockUsers.push(updatedUser);
     }
   };
 
-  const updateUserStateAndStorage = useCallback((updatedUser: User | null) => {
-    setUser(updatedUser);
-    if (updatedUser) {
-      localStorage.setItem(`${APP_NAME.toLowerCase()}-mock-user`, JSON.stringify(updatedUser));
-      updateUserInMockData(updatedUser); // Keep mockUsers array in sync
-      setProfileCompletionRequired(false); 
-      setPendingFirebaseUser(null);
+  const updateUserStateAndStorage = useCallback((currentUser: User | null) => {
+    setUser(currentUser);
+    if (currentUser) {
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(currentUser));
+      updateUserInMockDataArray(currentUser);
+      setProfileCompletionRequired(false);
+      setPendingNewUserInfo(null);
+      localStorage.removeItem(LOCAL_STORAGE_PENDING_USER_KEY);
     } else {
-      localStorage.removeItem(`${APP_NAME.toLowerCase()}-mock-user`);
+      localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
     }
   }, []);
 
-
   useEffect(() => {
     setIsLoading(true);
-    const storedUserJson = localStorage.getItem(`${APP_NAME.toLowerCase()}-mock-user`);
-    if (storedUserJson) {
-      try {
+    try {
+      const storedUserJson = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
+      const storedPendingUserJson = localStorage.getItem(LOCAL_STORAGE_PENDING_USER_KEY);
+
+      if (storedUserJson) {
         const storedUser = JSON.parse(storedUserJson) as User;
+         // Ensure mockUsers array reflects the stored user, especially for connections/requests
         const liveMockUser = mockUsers.find(u => u.id === storedUser.id);
         if (liveMockUser) {
-          // Ensure the live mock user from mockData.ts is the source of truth for connections etc.
-          // but preserve any profile updates that might have happened and were stored.
-          const mergedUser = {
-            ...liveMockUser, // Base from mockData (for connections, requests)
-            name: storedUser.name, // Potentially updated name
-            email: storedUser.email, // Potentially updated email (though unlikely for mock)
-            role: storedUser.role, // Potentially updated role
-            profile: storedUser.profile, // Potentially updated profile
-            // Ensure arrays are initialized
-            connections: liveMockUser.connections || [],
-            connectionRequestsSent: liveMockUser.connectionRequestsSent || [],
-            connectionRequestsReceived: liveMockUser.connectionRequestsReceived || [],
-          };
-          setUser(mergedUser);
+             const mergedUser = {
+                ...liveMockUser, // Base from mockData (for up-to-date connections, requests)
+                name: storedUser.name,
+                email: storedUser.email,
+                role: storedUser.role,
+                profile: storedUser.profile,
+             };
+            setUser(mergedUser);
         } else {
-          // Stored user not in current mockUsers (e.g. mockData reset), so clear storage
-          localStorage.removeItem(`${APP_NAME.toLowerCase()}-mock-user`);
+            // Stored user not in current mockUsers, use stored version but this might miss mockData updates
+            setUser(storedUser);
+            mockUsers.push(storedUser); // Add to mockUsers if missing
         }
-      } catch (e) {
-        console.error("Failed to parse stored user:", e);
-        localStorage.removeItem(`${APP_NAME.toLowerCase()}-mock-user`);
+      } else if (storedPendingUserJson) {
+        const pendingInfo = JSON.parse(storedPendingUserJson) as PendingNewUserInfo;
+        setPendingNewUserInfo(pendingInfo);
+        setProfileCompletionRequired(true);
       }
+    } catch (e) {
+      console.error("Error loading user state from localStorage:", e);
+      localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_PENDING_USER_KEY);
     }
     setIsLoading(false);
   }, []);
 
 
-  const checkAndHandleNewUser = (firebaseUid: string, firebaseEmail: string | null, firebaseDisplayName: string | null): boolean => {
-    const existingUser = mockUsers.find(u => u.id === firebaseUid);
+  const checkAndHandleNewUserFlow = (
+    uid: string,
+    email: string | null,
+    displayName: string | null,
+    provider?: 'google' | 'email'
+  ): boolean => {
+    const existingUser = mockUsers.find(u => u.id === uid || (email && u.email === email));
     if (existingUser) {
       updateUserStateAndStorage(existingUser);
-      return true; 
+      return false; // User exists, no completion needed
     } else {
-      setPendingFirebaseUser({ uid: firebaseUid, email: firebaseEmail, displayName: firebaseDisplayName });
+      const newPendingInfo: PendingNewUserInfo = { uid, email, displayName, provider };
+      setPendingNewUserInfo(newPendingInfo);
+      localStorage.setItem(LOCAL_STORAGE_PENDING_USER_KEY, JSON.stringify(newPendingInfo));
       setProfileCompletionRequired(true);
-      setUser(null); 
-      setIsLoading(false);
-      return false; 
+      setUser(null);
+      return true; // New user, completion needed
     }
   };
 
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    const mockFirebaseUser: FirebaseUser = {
-      uid: 'google_' + generateMockId(),
-      email: 'newgoogleuser@example.com',
-      displayName: 'Google User ' + Math.floor(Math.random() * 100),
-    };
-    
-    if (!checkAndHandleNewUser(mockFirebaseUser.uid, mockFirebaseUser.email, mockFirebaseUser.displayName)) {
-      setIsLoading(false);
-      return { success: true }; 
+    const mockGoogleUID = generateMockId('google_');
+    const mockGoogleEmail = `googleuser${Math.floor(Math.random() * 10000)}@example.com`;
+    const mockGoogleName = 'Google User ' + Math.floor(Math.random() * 100);
+
+    if (checkAndHandleNewUserFlow(mockGoogleUID, mockGoogleEmail, mockGoogleName, 'google')) {
+      // Profile completion flow will be triggered by AppLayout
     }
     setIsLoading(false);
     return { success: true };
@@ -136,26 +146,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithLinkedIn = async (): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    const mockLinkedInFirebaseUid = 'linkedin_' + generateMockId();
-    let linkedInUser = mockUsers.find(u => u.id === mockLinkedInFirebaseUid); 
-
+    // For LinkedIn, we'll simulate direct login with a pre-defined or newly created full mock user
+    // as if LinkedIn provided all necessary info.
+    let linkedInUser = mockUsers.find(u => u.email === 'expert@example.com'); // Try to find a specific mock user
     if (!linkedInUser) {
+      const mockLinkedInUID = generateMockId('linkedin_');
       linkedInUser = {
-        id: mockLinkedInFirebaseUid,
+        id: mockLinkedInUID,
         email: `linkedin${Math.floor(Math.random() * 10000)}@example.com`,
         name: 'LinkedIn User ' + Math.floor(Math.random() * 100),
-        role: UserRole.IndustryExpert, 
+        role: UserRole.IndustryExpert,
         profile: {
           areaOfExpertise: EXPERTISE_AREAS[Math.floor(Math.random() * EXPERTISE_AREAS.length)],
           yearsOfExperience: Math.floor(Math.random() * 10) + 1,
-          bio: "Experienced professional leveraging LinkedIn for connections.",
-          location: "San Francisco, USA",
+          bio: "Experienced professional from StartupConnect (via mock LinkedIn).",
+          location: "Professional Network City",
           profilePictureUrl: `https://placehold.co/100x100.png?text=LI`,
           language: 'en',
         } as ExpertProfile,
         connections: [], connectionRequestsSent: [], connectionRequestsReceived: [],
         createdAt: new Date().toISOString(),
       };
+      mockUsers.push(linkedInUser); // Add to our mock DB
     }
     updateUserStateAndStorage(linkedInUser);
     setIsLoading(false);
@@ -164,49 +176,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithEmailPassword = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    const foundUserInMock = mockUsers.find(u => u.email === email); 
-    
+    const foundUserInMock = mockUsers.find(u => u.email === email);
+
     if (foundUserInMock) {
-      if(!checkAndHandleNewUser(foundUserInMock.id, foundUserInMock.email, foundUserInMock.name)){
-        // New Firebase user flow triggered, isLoading handled by checkAndHandleNewUser
-      }
+      // Simulate password check - for mock, we assume it's correct
+      updateUserStateAndStorage(foundUserInMock);
     } else {
+      // If user not found by email, treat as a potential new user if this flow was also for "sign up or login"
+      // For now, let's stick to strict login: user must exist.
       setIsLoading(false);
       return { success: false, error: "Mock login failed: User not found or incorrect password." };
     }
-    setIsLoading(false); // Ensure loading is set to false if user found and no new flow
+    setIsLoading(false);
     return { success: true };
   };
 
-  const signupWithEmailPassword = async (
-    email: string, password: string, name: string, role: AppUserRole, profileData: Partial<ProfileData>
-  ): Promise<{ success: boolean; error?: string; user?: User }> => {
+  const signupWithEmailPassword = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string; needsProfileCompletion?: boolean }> => {
     setIsLoading(true);
     if (mockUsers.some(u => u.email === email)) {
       setIsLoading(false);
       return { success: false, error: "Mock user with this email already exists." };
     }
-    
-    const mockFirebaseUid = 'email_' + generateMockId();
-    
-    setPendingFirebaseUser({ uid: mockFirebaseUid, email: email, displayName: name });
+
+    const mockNewUID = generateMockId('email_');
+    const newPendingInfo: PendingNewUserInfo = {
+      uid: mockNewUID,
+      email: email,
+      displayName: name,
+      provider: 'email'
+    };
+    setPendingNewUserInfo(newPendingInfo);
+    localStorage.setItem(LOCAL_STORAGE_PENDING_USER_KEY, JSON.stringify(newPendingInfo));
     setProfileCompletionRequired(true);
-    setUser(null);
+    setUser(null); // Ensure no active user while pending completion
     setIsLoading(false);
-    return { success: true }; 
+    return { success: true, needsProfileCompletion: true };
   };
 
   const completeNewUserProfile = async (data: { name: string; role: AppUserRole; profileData: Partial<ProfileData> }): Promise<{ success: boolean; error?: string; user?: User }> => {
-    if (!pendingFirebaseUser) {
-      return { success: false, error: "No pending Firebase user to complete profile for." };
+    if (!pendingNewUserInfo) {
+      return { success: false, error: "No pending user information to complete profile for." };
     }
 
     const newUser: User = {
-      id: pendingFirebaseUser.uid, 
-      email: pendingFirebaseUser.email || 'unknown@example.com',
+      id: pendingNewUserInfo.uid,
+      email: pendingNewUserInfo.email || 'unknown@example.com',
       name: data.name,
       role: data.role,
-      profile: { // Ensure all profile fields are initialized based on role
+      profile: {
         bio: data.profileData.bio ?? "",
         location: data.profileData.location ?? "",
         website: data.profileData.website ?? "",
@@ -235,15 +252,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       connections: [], connectionRequestsSent: [], connectionRequestsReceived: [],
       createdAt: new Date().toISOString(),
     };
-    
-    updateUserStateAndStorage(newUser); 
+
+    updateUserStateAndStorage(newUser);
     return { success: true, user: newUser };
   };
 
   const logout = async () => {
     setIsLoading(true);
-    updateUserStateAndStorage(null); 
-    setPendingFirebaseUser(null);
+    updateUserStateAndStorage(null);
+    setPendingNewUserInfo(null);
+    localStorage.removeItem(LOCAL_STORAGE_PENDING_USER_KEY);
     setProfileCompletionRequired(false);
     setIsLoading(false);
   };
@@ -251,23 +269,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUserInContext = async (updatedUserData: Partial<User>): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: "No user logged in to update." };
     
-    const userIndex = mockUsers.findIndex(u => u.id === user.id);
-    if (userIndex === -1) { // Should not happen if user is set from mockUsers
-      // If it does, it might mean a user was stored in localStorage but removed from mockData.ts
-      // In this case, let's treat it as adding a new user to mockData if we have full data.
-      // However, for update, we expect the user to exist.
-      return { success: false, error: "User not found in mock data for update."};
-    }
+    const currentUserFromMock = mockUsers.find(u => u.id === user.id);
+    if (!currentUserFromMock) return { success: false, error: "User not found in mock data for update." };
 
-    const updatedUserFull = { 
-      ...mockUsers[userIndex], 
-      ...updatedUserData, // Overwrite top-level fields like name, email, role
-      profile: updatedUserData.profile // If profile is part of updatedUserData, replace it entirely
-                 ? { ...(mockUsers[userIndex].profile as ProfileData), ...(updatedUserData.profile as Partial<ProfileData>)} 
-                 : mockUsers[userIndex].profile // Otherwise, keep existing profile
-    } as User; 
+    const updatedUserFull = {
+      ...currentUserFromMock,
+      ...updatedUserData,
+      profile: updatedUserData.profile
+                 ? { ...(currentUserFromMock.profile as ProfileData), ...(updatedUserData.profile as Partial<ProfileData>)}
+                 : currentUserFromMock.profile
+    } as User;
     
-    updateUserStateAndStorage(updatedUserFull); 
+    updateUserStateAndStorage(updatedUserFull);
     return { success: true };
   };
 
@@ -280,12 +293,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     const currentUserData = { ...mockUsers[currentUserIndex] }; 
     currentUserData.connectionRequestsSent = [...new Set([...(currentUserData.connectionRequestsSent || []), targetUserId])];
-    currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== targetUserId); // No self-requests in received
-    currentUserData.connections = (currentUserData.connections || []).filter(id => id !== targetUserId); // Not connected if sending request
+    currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== targetUserId);
+    currentUserData.connections = (currentUserData.connections || []).filter(id => id !== targetUserId);
     
-    const targetUserData = mockUsers[targetUserIndex]; 
+    const targetUserData = { ...mockUsers[targetUserIndex] }; 
     targetUserData.connectionRequestsReceived = [...new Set([...(targetUserData.connectionRequestsReceived || []), user.id])];
     
+    mockUsers[currentUserIndex] = currentUserData;
+    mockUsers[targetUserIndex] = targetUserData;
     updateUserStateAndStorage(currentUserData); 
     return { success: true };
   };
@@ -301,10 +316,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     currentUserData.connections = [...new Set([...(currentUserData.connections || []), requesterId])];
     currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== requesterId);
 
-    const requesterUserData = mockUsers[requesterUserIndex];
+    const requesterUserData = { ...mockUsers[requesterUserIndex] };
     requesterUserData.connections = [...new Set([...(requesterUserData.connections || []), user.id])];
     requesterUserData.connectionRequestsSent = (requesterUserData.connectionRequestsSent || []).filter(id => id !== user.id);
     
+    mockUsers[currentUserIndex] = currentUserData;
+    mockUsers[requesterUserIndex] = requesterUserData;
     updateUserStateAndStorage(currentUserData);
     return { success: true };
   };
@@ -312,17 +329,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const declineConnectionRequest = async (requesterId: string): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: "User not logged in." };
     const currentUserIndex = mockUsers.findIndex(u => u.id === user.id);
-     if (currentUserIndex === -1) return { success: false, error: "User not found." };
+    if (currentUserIndex === -1) return { success: false, error: "User not found." };
 
     const currentUserData = { ...mockUsers[currentUserIndex] };
     currentUserData.connectionRequestsReceived = (currentUserData.connectionRequestsReceived || []).filter(id => id !== requesterId);
     
-    // Also remove from requester's sent list for consistency in mock
     const requesterUserIndex = mockUsers.findIndex(u => u.id === requesterId);
     if (requesterUserIndex !== -1) {
-        mockUsers[requesterUserIndex].connectionRequestsSent = (mockUsers[requesterUserIndex].connectionRequestsSent || []).filter(id => id !== user.id);
+        const requesterUserData = { ...mockUsers[requesterUserIndex] };
+        requesterUserData.connectionRequestsSent = (requesterUserData.connectionRequestsSent || []).filter(id => id !== user.id);
+        mockUsers[requesterUserIndex] = requesterUserData;
     }
-
+    
+    mockUsers[currentUserIndex] = currentUserData;
     updateUserStateAndStorage(currentUserData);
     return { success: true };
   };
@@ -337,9 +356,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const currentUserData = { ...mockUsers[currentUserIndex] };
     currentUserData.connections = (currentUserData.connections || []).filter(id => id !== connectionId);
 
-    const connectionUserData = mockUsers[connectionUserIndex];
+    const connectionUserData = { ...mockUsers[connectionUserIndex] };
     connectionUserData.connections = (connectionUserData.connections || []).filter(id => id !== user.id);
-
+    
+    mockUsers[currentUserIndex] = currentUserData;
+    mockUsers[connectionUserIndex] = connectionUserData;
     updateUserStateAndStorage(currentUserData);
     return { success: true };
   };
@@ -350,7 +371,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (communityIndex === -1) return { success: false, error: "Community not found." };
 
     mockCommunities[communityIndex].members = [...new Set([...mockCommunities[communityIndex].members, user.id])];
-    // No need to call updateUserStateAndStorage unless community membership is part of User object
     return { success: true };
   };
 
@@ -366,23 +386,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const createCommunity = async (communityData: { name: string; description: string; industry: string }): Promise<{ success: boolean; communityId?: string; error?: string }> => {
     if (!user) return { success: false, error: "User not logged in." };
     
-    const newCommunityId = generateMockId('comm');
+    const newCommunityId = generateMockId('comm_');
     const newCommunity: Community = {
       id: newCommunityId,
       name: communityData.name,
       description: communityData.description,
-      industry: communityData.industry as (typeof INDUSTRIES)[number], // Cast for safety
-      members: [user.id], // Creator is the first member
+      industry: communityData.industry as (typeof INDUSTRIES)[number],
+      members: [user.id],
       creatorId: user.id,
       createdAt: new Date().toISOString(),
     };
-    mockCommunities.unshift(newCommunity); // Add to the beginning of the array
+    mockCommunities.unshift(newCommunity);
     return { success: true, communityId: newCommunityId };
   };
   
   const createCofounderListing = async (listingData: Omit<CofounderListing, 'id' | 'userId' | 'createdAt'>): Promise<{ success: boolean; listingId?: string; error?: string }> => {
     if (!user) return { success: false, error: "User not logged in." };
-    const newListingId = generateMockId('listing');
+    const newListingId = generateMockId('listing_');
     const newListing: CofounderListing = {
       id: newListingId,
       userId: user.id,
@@ -396,19 +416,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const createMockChat = async (participantIds: string[]): Promise<{ success: boolean; chatId?: string; error?: string, chat?: Chat }> => {
     if (!user || !participantIds.includes(user.id)) return { success: false, error: "User not authenticated or not part of participants." };
 
-    // Sort participant IDs to ensure consistent chat ID generation/lookup for 1-on-1 chats
     const sortedParticipantIds = [...participantIds].sort();
     
     let existingChat = mockChats.find(chat => {
-        if (sortedParticipantIds.length === 2 && !chat.isGroupChat) { // 1-on-1 chat
+        if (sortedParticipantIds.length === 2 && !chat.isGroupChat) {
             return chat.participantIds.length === 2 && 
                    chat.participantIds.every(id => sortedParticipantIds.includes(id));
         }
-        // For group chats, ID matching is usually explicit. For this mock, we'll assume if it's > 2, it needs a unique ID.
-        // Or, if you want to find existing group chats by exact participant match:
-        if (sortedParticipantIds.length > 2 && chat.isGroupChat) { // Group chat
+        if (sortedParticipantIds.length > 2 && chat.isGroupChat) {
              return chat.participantIds.length === sortedParticipantIds.length && 
-                    chat.participantIds.every(id => sortedParticipantIds.includes(id)); // Simple participant match
+                    chat.participantIds.every(id => sortedParticipantIds.includes(id));
         }
         return false;
     });
@@ -417,16 +434,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { success: true, chatId: existingChat.id, chat: existingChat };
     }
 
-    // Create new chat if not found
-    const newChatId = generateMockId('chat');
+    const newChatId = generateMockId('chat_');
     const newChat: Chat = {
       id: newChatId,
       participantIds: sortedParticipantIds,
-      messages: [], // Initialize with empty messages
+      messages: [],
+      lastMessage: undefined,
       isGroupChat: participantIds.length > 2,
-      ...(participantIds.length > 2 && { groupName: 'New Group' }) // Default group name
+      ...(participantIds.length > 2 && { groupName: 'New Group' })
     };
-    mockChats.unshift(newChat); // Add to the beginning for recent chats
+    mockChats.unshift(newChat);
     return { success: true, chatId: newChatId, chat: newChat };
   };
 
@@ -437,7 +454,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const newMessageData: Message = {
-      id: generateMockId('msg'),
+      id: generateMockId('msg_'),
       chatId,
       senderId,
       content,
@@ -447,17 +464,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     mockChats[chatIndex].messages.push(newMessageData);
     mockChats[chatIndex].lastMessage = newMessageData;
 
-    // Move the updated chat to the top of the list
     const updatedChat = mockChats.splice(chatIndex, 1)[0];
     mockChats.unshift(updatedChat);
     
     return { success: true, newMessage: newMessageData };
   };
 
-
   return (
     <AuthContext.Provider value={{
-      user, isLoading, profileCompletionRequired, pendingFirebaseUser,
+      user, isLoading, profileCompletionRequired, pendingNewUserInfo,
       loginWithGoogle, loginWithLinkedIn, loginWithEmailPassword, signupWithEmailPassword, logout, updateUserInContext,
       completeNewUserProfile,
       sendConnectionRequest, acceptConnectionRequest, declineConnectionRequest, removeConnection,

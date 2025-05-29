@@ -116,7 +116,7 @@ const getValidationSchemaForRole = (role?: AppUserRole) => {
 
 
 export default function ProfileSetupPage() {
-  const { pendingFirebaseUser, completeNewUserProfile, isLoading: authLoading, user } = useAuth();
+  const { pendingNewUserInfo, completeNewUserProfile, isLoading: authLoading, user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [selectedRole, setSelectedRole] = useState<AppUserRole | undefined>(undefined);
@@ -129,8 +129,8 @@ export default function ProfileSetupPage() {
   const { control, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<any>({
     resolver: zodResolver(CombinedSchema),
     defaultValues: {
-      name: pendingFirebaseUser?.displayName || "",
-      email: pendingFirebaseUser?.email || "", // Display only
+      name: pendingNewUserInfo?.displayName || "",
+      email: pendingNewUserInfo?.email || "", // Display only
       role: undefined,
       // profileData defaults will be set by Zod .default() or by watching role
     },
@@ -142,10 +142,10 @@ export default function ProfileSetupPage() {
     if (user && !authLoading) { // If user becomes available (profile completed), redirect
       router.replace('/home');
     }
-    if (!pendingFirebaseUser && !authLoading) { // If no pending user, redirect to login
+    if (!pendingNewUserInfo && !authLoading && !user) { // If no pending user and no active user, redirect to login
       router.replace('/login');
     }
-  }, [user, pendingFirebaseUser, authLoading, router]);
+  }, [user, pendingNewUserInfo, authLoading, router]);
 
   useEffect(() => {
     if (watchedRole) {
@@ -154,19 +154,19 @@ export default function ProfileSetupPage() {
       // Reset with defaults for the new role
       const defaultProfileValues = getValidationSchemaForRole(watchedRole).parse({});
       reset({
-        name: control._formValues.name || pendingFirebaseUser?.displayName || "",
-        email: pendingFirebaseUser?.email || "",
+        name: control._formValues.name || pendingNewUserInfo?.displayName || "",
+        email: pendingNewUserInfo?.email || "",
         role: watchedRole,
         ...defaultProfileValues
       });
     } else {
       setCurrentProfileFields([]);
     }
-  }, [watchedRole, reset, pendingFirebaseUser, control._formValues.name]);
+  }, [watchedRole, reset, pendingNewUserInfo, control._formValues.name]);
 
 
   const onSubmit: SubmitHandler<any> = async (data) => {
-    if (!pendingFirebaseUser) {
+    if (!pendingNewUserInfo) {
       toast({ variant: "destructive", title: "Error", description: "Session error. Please try logging in again." });
       router.push('/login');
       return;
@@ -193,7 +193,7 @@ export default function ProfileSetupPage() {
     }
   };
 
-  if (authLoading || !pendingFirebaseUser) {
+  if (authLoading || (!pendingNewUserInfo && !user)) { // Show loader if auth is loading OR no pending/active user
     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   
@@ -271,7 +271,7 @@ export default function ProfileSetupPage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email (from provider)</Label>
-              <Input id="email" value={pendingFirebaseUser.email || "Not provided"} readOnly className="bg-muted/50" />
+              <Input id="email" value={pendingNewUserInfo?.email || "Not provided"} readOnly className="bg-muted/50" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>

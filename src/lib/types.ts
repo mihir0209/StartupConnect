@@ -1,3 +1,4 @@
+
 import type { UserRole, FUNDING_STAGES, INDUSTRIES, EXPERTISE_AREAS } from "./constants";
 
 export interface BaseProfile {
@@ -75,7 +76,7 @@ export interface Community {
 
 export interface Message {
   id: string;
-  chatId: string; // Identifier for the conversation (could be a combination of user IDs or a group ID)
+  chatId: string; 
   senderId: string;
   content: string;
   fileUrl?: string;
@@ -84,12 +85,12 @@ export interface Message {
 
 export interface Chat {
   id: string;
-  participantIds: string[]; // For 1-on-1 or group chats
-  messages: Message[]; // Full message history
+  participantIds: string[]; 
+  messages: Message[]; 
   lastMessage?: Message;
   isGroupChat: boolean;
-  groupName?: string; // if isGroupChat
-  groupIcon?: string; // if isGroupChat
+  groupName?: string; 
+  groupIcon?: string; 
 }
 
 export interface CofounderPreference {
@@ -101,9 +102,9 @@ export interface CofounderPreference {
 
 export interface CofounderListing {
   id: string;
-  userId: string; // The user looking for a co-founder
+  userId: string; 
   preferences: CofounderPreference;
-  pitch: string; // Brief description of their idea or what they bring
+  pitch: string; 
   createdAt: string;
 }
 
@@ -119,7 +120,7 @@ export type SignupFormData = {
 };
 
 export type ProfileField = {
-  name: keyof FounderProfile | keyof InvestorProfile | keyof ExpertProfile | keyof BaseProfile;
+  name: keyof FounderProfile | keyof InvestorProfile | keyof ExpertProfile | keyof BaseProfile | 'name' | 'email' | 'role';
   label: string;
   type: "text" | "textarea" | "select" | "number" | "multiselect";
   options?: string[];
