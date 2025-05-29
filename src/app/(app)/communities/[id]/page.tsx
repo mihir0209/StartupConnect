@@ -12,13 +12,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState, use } from "react"; // Added 'use'
-import type { Community } from "@/lib/types";
+import { useEffect, useState, use } from "react";
+import type { Community, User } from "@/lib/types";
+import { getUserDisplayDomains } from "@/lib/userUtils";
 
 
 export default function CommunityDetailPage({ params: paramsPromise }: { params: { id: string } }) {
-  const params = use(paramsPromise); // Resolve params promise
-  const { id: communityId } = params; // Destructure id
+  const params = use(paramsPromise); 
+  const { id: communityId } = params;
 
   const { user: loggedInUser, joinCommunity, leaveCommunity } = useAuth();
   const { toast } = useToast();
@@ -33,7 +34,7 @@ export default function CommunityDetailPage({ params: paramsPromise }: { params:
     if (currentCommunity && loggedInUser) {
       setIsMember(currentCommunity.members.includes(loggedInUser.id));
     }
-  }, [communityId, loggedInUser, mockCommunities]); // Re-check if any of these change
+  }, [communityId, loggedInUser]); // Re-check if any of these change
 
   // Filter posts for this community (mock logic)
   const communityPosts = mockPosts.filter(p => Math.random() > 0.5).slice(0,2); 
@@ -93,7 +94,7 @@ export default function CommunityDetailPage({ params: paramsPromise }: { params:
             src={`https://placehold.co/1200x300.png?text=${encodeURIComponent(community.name)}`} 
             alt={`${community.name} banner`} 
             fill
-            className="object-cover opacity-80" // Removed objectFit, fill handles it with object-cover class
+            className="object-cover opacity-80"
             data-ai-hint={`${community.industry} group banner`}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-6 flex flex-col justify-end">
@@ -150,7 +151,7 @@ export default function CommunityDetailPage({ params: paramsPromise }: { params:
                   </Avatar>
                   <div>
                     <p className="font-semibold text-sm">{member.name}</p>
-                    <p className="text-xs text-muted-foreground">{member.role}</p>
+                    <p className="text-xs text-muted-foreground">{member.role} <span className="text-primary/80">{getUserDisplayDomains(member)}</span></p>
                   </div>
                 </Link>
               ))}

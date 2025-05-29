@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search as SearchIcon, Filter, UserCircle, FileText } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { getUserDisplayDomains } from "@/lib/userUtils";
 
 type SearchResult = (User & { type: 'user' }) | (Post & { type: 'post' });
 
@@ -151,9 +152,7 @@ export default function SearchPage() {
                     </Avatar>
                     <div className="flex-1">
                       <Link href={`/profile/${user.id}`} className="text-lg font-semibold text-primary hover:underline">{user.name}</Link>
-                      <p className="text-sm text-muted-foreground">{user.role}</p>
-                      {(user.profile as any).industry && <p className="text-xs text-muted-foreground">Industry: {(user.profile as any).industry}</p>}
-                      {(user.profile as any).areaOfExpertise && <p className="text-xs text-muted-foreground">Expertise: {(user.profile as any).areaOfExpertise}</p>}
+                      <p className="text-sm text-muted-foreground">{user.role} <span className="text-primary/80">{getUserDisplayDomains(user)}</span></p>
                       <p className="text-sm mt-1 line-clamp-2">{user.profile.bio || "No bio available."}</p>
                     </div>
                     <Button variant="outline" size="sm" asChild><Link href={`/profile/${user.id}`}>View Profile</Link></Button>

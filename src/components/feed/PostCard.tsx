@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getUserDisplayDomains } from "@/lib/userUtils";
 
 
 interface PostCardProps {
@@ -47,35 +48,23 @@ export function PostCard({ post: initialPost }: PostCardProps) {
     return (names[0][0] + (names[names.length -1][0] || '')).toUpperCase();
   }
 
-  let authorForDisplay: {
-    id: string;
-    name: string;
-    role: UserRole | string;
-    profile: { profilePictureUrl?: string };
-  };
-
+  let authorForDisplay: User | undefined | null;
   const foundMockAuthor = mockUsers.find(u => u.id === currentPost.authorId);
 
   if (foundMockAuthor) {
-    authorForDisplay = {
-      id: foundMockAuthor.id,
-      name: foundMockAuthor.name,
-      role: foundMockAuthor.role,
-      profile: { profilePictureUrl: foundMockAuthor.profile.profilePictureUrl },
-    };
+    authorForDisplay = foundMockAuthor;
   } else if (loggedInUser && loggedInUser.id === currentPost.authorId) {
-    authorForDisplay = {
-      id: loggedInUser.id,
-      name: loggedInUser.name,
-      role: loggedInUser.role,
-      profile: { profilePictureUrl: loggedInUser.profile.profilePictureUrl },
-    };
+    authorForDisplay = loggedInUser;
   } else {
-    authorForDisplay = {
+    authorForDisplay = { // Fallback author structure
       id: currentPost.authorId,
       name: "StartupConnect User",
-      role: "Member", 
-      profile: { profilePictureUrl: `https://placehold.co/40x40.png?text=S` },
+      role: "Member" as UserRole, // Cast for type safety
+      profile: { profilePictureUrl: `https://placehold.co/40x40.png?text=S` } as ProfileData,
+      connections: [],
+      connectionRequestsSent: [],
+      connectionRequestsReceived: [],
+      createdAt: new Date().toISOString(),
     };
   }
   
@@ -118,12 +107,11 @@ export function PostCard({ post: initialPost }: PostCardProps) {
     if (!loggedInUser) return;
     const chatResult = await createMockChat([loggedInUser.id, connection.id]);
     if (chatResult.success && chatResult.chatId) {
-      const messageContent = `Check out this post by ${authorForDisplay.name}:\n"${currentPost.content.substring(0, 70)}${currentPost.content.length > 70 ? '...' : ''}"\n\nView post: /posts/${currentPost.id}`; 
+      const messageContent = `Check out this post by ${authorForDisplay?.name || 'a user'}:\n"${currentPost.content.substring(0, 70)}${currentPost.content.length > 70 ? '...' : ''}"\n\nView post: /posts/${currentPost.id}`; 
       const sendResult = await sendMessage(chatResult.chatId, loggedInUser.id, messageContent);
       if (sendResult.success) {
         toast({ title: "Shared!", description: `Post sent to ${connection.name}.` });
         setIsShareDialogOpen(false);
-        // router.push(`/messages?chatWith=${connection.id}&chatId=${chatResult.chatId}`); // Navigation removed based on user request
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not send message." });
       }
@@ -140,7 +128,6 @@ export function PostCard({ post: initialPost }: PostCardProps) {
 
   const handleDeletePost = () => {
     toast({ title: "Feature Info", description: "Deleting posts will be available soon. For now, imagine it's gone!"});
-    // Future: Call an action to delete, then remove from local state or refetch.
   };
   
   const handleReportPost = () => {
@@ -165,7 +152,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
               <div>
                 <p className="font-semibold hover:underline">{authorForDisplay.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {authorForDisplay.role} &bull; {formatDistanceToNow(new Date(currentPost.createdAt), { addSuffix: true })}
+                  {authorForDisplay.role} <span className="text-primary/80">{getUserDisplayDomains(authorForDisplay)}</span> &bull; {formatDistanceToNow(new Date(currentPost.createdAt), { addSuffix: true })}
                 </p>
               </div>
             </a>
@@ -178,7 +165,6 @@ export function PostCard({ post: initialPost }: PostCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {/* Removed misplaced DialogHeader, DialogTitle, DialogDescription */}
               {loggedInUser && loggedInUser.id === currentPost.authorId && (
                 <>
                   <DropdownMenuItem onClick={handleEditPost}>

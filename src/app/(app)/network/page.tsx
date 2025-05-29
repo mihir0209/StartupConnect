@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import type { User } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { getUserDisplayDomains } from "@/lib/userUtils";
 
 export default function NetworkPage() {
   const { user: loggedInUser, sendConnectionRequest, acceptConnectionRequest, declineConnectionRequest } = useAuth();
@@ -34,7 +35,7 @@ export default function NetworkPage() {
     u.id !== loggedInUser.id && 
     !loggedInUser.connections.includes(u.id) &&
     !loggedInUser.connectionRequestsSent.includes(u.id) &&
-    !loggedInUser.connectionRequestsReceived.includes(u.id) && // Also exclude those who sent request to current user
+    !loggedInUser.connectionRequestsReceived.includes(u.id) &&
     ( (loggedInUser.profile as any).industry === (u.profile as any).industry || 
       Math.random() < 0.3 ) 
   ).slice(0, 5);
@@ -104,7 +105,7 @@ export default function NetworkPage() {
                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <Link href={`/profile/${user.id}`} className="font-semibold hover:underline">{user.name}</Link>
-                  <p className="text-xs text-muted-foreground">{user.role}</p>
+                  <p className="text-xs text-muted-foreground">{user.role} <span className="text-primary/80">{getUserDisplayDomains(user)}</span></p>
                   <Button variant="outline" size="sm" className="mt-2" asChild>
                     <Link href={`/profile/${user.id}`}>View Profile</Link>
                   </Button>
@@ -136,7 +137,7 @@ export default function NetworkPage() {
                        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                     </Avatar>
                     <Link href={`/profile/${user.id}`} className="font-semibold hover:underline">{user.name}</Link>
-                    <p className="text-xs text-muted-foreground">{user.role}</p>
+                    <p className="text-xs text-muted-foreground">{user.role} <span className="text-primary/80">{getUserDisplayDomains(user)}</span></p>
                     {buttonState === 'connect' ? (
                       <Button size="sm" className="mt-2 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => handleSendRequest(user.id)}>
                         <UserCheck className="mr-2 h-4 w-4"/> Connect
@@ -173,7 +174,7 @@ export default function NetworkPage() {
                     <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <Link href={`/profile/${user.id}`} className="font-semibold hover:underline">{user.name}</Link>
-                   <p className="text-xs text-muted-foreground">{user.role}</p>
+                   <p className="text-xs text-muted-foreground">{user.role} <span className="text-primary/80">{getUserDisplayDomains(user)}</span></p>
                   <div className="flex gap-2 mt-2">
                     <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => handleAcceptRequest(user.id)}>
                       <CheckCircle className="mr-2 h-4 w-4"/> Accept

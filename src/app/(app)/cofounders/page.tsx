@@ -16,6 +16,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { getUserDisplayDomains } from "@/lib/userUtils";
 
 const mockCofounderMatches: (User & { compatibilityScore: number })[] = mockUsers
   .filter(u => u.id !== 'user1') // Exclude self for default mock
@@ -140,8 +141,7 @@ export default function CofoundersPage() {
                   <AvatarFallback>{getInitials(match.name)}</AvatarFallback>
                 </Avatar>
                 <Link href={`/profile/${match.id}`} className="text-lg font-semibold hover:underline">{match.name}</Link>
-                <p className="text-sm text-muted-foreground">{match.role}</p>
-                {(match.profile as any).areaOfExpertise && <p className="text-xs text-muted-foreground">Expertise: {(match.profile as any).areaOfExpertise}</p>}
+                <p className="text-sm text-muted-foreground">{match.role} <span className="text-primary/80">{getUserDisplayDomains(match)}</span></p>
                 {(match.profile as any).startupName && <p className="text-xs text-muted-foreground">Startup: {(match.profile as any).startupName}</p>}
                 
                 <div className="mt-3 mb-2 inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
