@@ -123,6 +123,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
       if (sendResult.success) {
         toast({ title: "Shared!", description: `Post sent to ${connection.name}.` });
         setIsShareDialogOpen(false);
+        // router.push(`/messages?chatWith=${connection.id}&chatId=${chatResult.chatId}`); // Navigation removed based on user request
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not send message." });
       }
@@ -139,6 +140,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
 
   const handleDeletePost = () => {
     toast({ title: "Feature Info", description: "Deleting posts will be available soon. For now, imagine it's gone!"});
+    // Future: Call an action to delete, then remove from local state or refetch.
   };
   
   const handleReportPost = () => {
@@ -176,10 +178,7 @@ export function PostCard({ post: initialPost }: PostCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DialogHeader>
-                <DialogTitle>Share Post</DialogTitle>
-                <DialogDescription>Send this post to your connections.</DialogDescription>
-              </DialogHeader>
+              {/* Removed misplaced DialogHeader, DialogTitle, DialogDescription */}
               {loggedInUser && loggedInUser.id === currentPost.authorId && (
                 <>
                   <DropdownMenuItem onClick={handleEditPost}>
@@ -328,4 +327,3 @@ export function PostCard({ post: initialPost }: PostCardProps) {
     </Card>
   );
 }
-
