@@ -13,14 +13,13 @@ import { Label } from "@/components/ui/label";
 import { LogIn, Chrome, Linkedin, AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { APP_NAME } from "@/lib/constants";
-import { Logo } from "@/components/shared/Logo";
 
-const BANNER_URL = "https://i.ibb.co/mrFXb2jD/Screenshot-2025-05-27-155445.png";
+const BANNER_URL = "https://i.ibb.co/mrFXb2jD/Screenshot-2025-05-27-155445.png"; // Banner for card
 const LOGIN_DESCRIPTION = `Sign in to access ${APP_NAME}.`;
 
 export function LoginForm() {
   const router = useRouter();
-  const { loginWithGoogle, loginWithEmailPassword, loginWithLinkedIn, user, isLoading: authLoading, profileCompletionRequired, pendingFirebaseUser } = useAuth();
+  const { loginWithGoogle, loginWithEmailPassword, loginWithLinkedIn, user, isLoading: authLoading, profileCompletionRequired, pendingNewUserInfo } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +28,7 @@ export function LoginForm() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
 
+  // Animation states
   const [showCard, setShowCard] = useState(false);
   const [showBanner, setShowBanner] = useState(false);
   const [showTitle, setShowTitle] = useState(false);
@@ -37,11 +37,13 @@ export function LoginForm() {
   const [showFormElements, setShowFormElements] = useState(false);
 
   useEffect(() => {
-    const timer0 = setTimeout(() => setShowCard(true), 50);
-    const timer1 = setTimeout(() => setShowBanner(true), 250);
-    const timer2 = setTimeout(() => setShowTitle(true), 700);
-    const timer3 = setTimeout(() => setStartTypingDescription(true), 1200);
-    const timer4 = setTimeout(() => setShowFormElements(true), 1700 + LOGIN_DESCRIPTION.length * 30); // Delay form elements until typing is likely done
+    const timer0 = setTimeout(() => setShowCard(true), 50); // Card fades in almost immediately
+    const timer1 = setTimeout(() => setShowBanner(true), 250); // Banner inside card starts dehazing
+    const timer2 = setTimeout(() => setShowTitle(true), 700); // Title starts animation
+    const timer3 = setTimeout(() => setStartTypingDescription(true), 1200); // Description starts typing
+    // Form elements delay based on description typing time + a bit more
+    const descriptionTypingDuration = LOGIN_DESCRIPTION.length * 30; // Rough estimate for typing
+    const timer4 = setTimeout(() => setShowFormElements(true), 1200 + descriptionTypingDuration + 300);
 
     return () => {
       clearTimeout(timer0);
@@ -56,20 +58,21 @@ export function LoginForm() {
     if (startTypingDescription && typedDescription.length < LOGIN_DESCRIPTION.length) {
       const typingTimer = setTimeout(() => {
         setTypedDescription(LOGIN_DESCRIPTION.substring(0, typedDescription.length + 1));
-      }, 30);
+      }, 30); // Adjust typing speed here
       return () => clearTimeout(typingTimer);
     }
   }, [typedDescription, startTypingDescription]);
 
+
   useEffect(() => {
     if (!authLoading) {
-      if (user) {
-        router.push('/home');
-      } else if (profileCompletionRequired && pendingFirebaseUser) {
+      if (profileCompletionRequired && pendingNewUserInfo) {
         router.push('/settings/profile-setup');
+      } else if (user) {
+        router.push('/home');
       }
     }
-  }, [user, authLoading, profileCompletionRequired, pendingFirebaseUser, router]);
+  }, [user, authLoading, profileCompletionRequired, pendingNewUserInfo, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,8 +115,6 @@ export function LoginForm() {
       </div>
     );
   }
-  // If profile completion is required, redirection is handled by useEffect or AppLayout
-  // If user is logged in, redirection is handled by useEffect
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 overflow-hidden">
