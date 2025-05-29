@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { mockUsers, mockChats as initialMockChats } from "@/lib/mockData";
-import { MessageSquare, Send, Search, PlusCircle, Paperclip, ArrowLeft } from "lucide-react";
+import { MessageSquare, Send, Search, PlusCircle, Paperclip, ArrowLeft, Users as UsersIcon } from "lucide-react";
 import Link from "next/link";
 import type { Chat, Message as MessageType, User } from "@/lib/types";
 import { useState, useEffect, useRef } from "react";
@@ -15,16 +15,26 @@ import { useAuth } from "@/hooks/useAuth";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 
-const getParticipantDetails = (participantIds: string[], currentUserId: string) => {
+const getParticipantDetails = (participantIds: string[], currentUserId: string, isGroupChat?: boolean, groupName?: string) => {
+    if (isGroupChat) {
+        const members = participantIds.filter(id => id !== currentUserId).map(id => mockUsers.find(u => u.id === id)?.name.split(' ')[0] || 'User');
+        const groupDisplayName = groupName || (members.length > 0 ? `${members.slice(0,2).join(', ')} & others` : 'Group Chat');
+        return { name: groupDisplayName, avatar: `https://placehold.co/40x40.png?text=${groupDisplayName[0]?.toUpperCase() || 'G'}`, userId: null, isGroup: true };
+    }
     const otherParticipantId = participantIds.find(id => id !== currentUserId);
-    if (!otherParticipantId) return { name: 'Unknown Group', avatar: 'https://placehold.co/40x40.png?text=G', userId: null };
+    if (!otherParticipantId) return { name: 'Unknown Chat', avatar: 'https://placehold.co/40x40.png?text=U', userId: null, isGroup: false };
     const user = mockUsers.find(u => u.id === otherParticipantId);
     return {
       name: user?.name || 'Unknown User',
       avatar: user?.profile.profilePictureUrl || `https://placehold.co/40x40.png?text=${getInitials(user?.name)}`,
-      userId: user?.id || null
+      userId: user?.id || null,
+      isGroup: false,
     };
 };
 
@@ -40,11 +50,15 @@ export default function MessagesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isCreateChatOpen, setIsCreateChatOpen] = useState(false);
+  const [selectedUsersForNewChat, setSelectedUsersForNewChat] = useState<string[]>([]);
+
 
   useEffect(() => {
     const chatWithUserId = searchParams.get('chatWith');
@@ -69,7 +83,6 @@ export default function MessagesPage() {
             );
 
             if (!chatToSelect) {
-                // Attempt to create a chat if one doesn't exist
                 const result = await createMockChat([currentUser.id, chatWithUserId]);
                 if (result.success && result.chat) {
                     chatToSelect = result.chat;
@@ -98,14 +111,12 @@ export default function MessagesPage() {
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
     if (!isMobile) {
-      // Update URL without full page reload for desktop
       router.replace(`/messages?chatId=${chat.id}`, { scroll: false });
     }
   };
 
   const handleGoBackToChatList = () => {
     setSelectedChat(null);
-    // Optionally clear URL params if desired for mobile
     if (isMobile) {
         router.replace('/messages', { scroll: false });
     }
@@ -117,15 +128,42 @@ export default function MessagesPage() {
     const result = await sendMessage(selectedChat.id, currentUser.id, newMessage.trim());
 
     if (result.success && result.newMessage) {
-        // The mockChats array is mutated by AuthContext, so we need to find the updated chat
         const updatedChat = initialMockChats.find(c => c.id === selectedChat.id);
-        setSelectedChat(updatedChat || null); // Re-set selectedChat to trigger re-render with new message
+        setSelectedChat(updatedChat || null); 
         setNewMessage("");
     } else {
-        // Handle error, e.g., show a toast
         console.error("Failed to send message:", result.error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to send message." });
     }
   };
+
+  const handleToggleUserForNewChat = (userId: string) => {
+    setSelectedUsersForNewChat(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleCreateNewChat = async () => {
+    if (!currentUser || selectedUsersForNewChat.length === 0) {
+        toast({ variant: "destructive", title: "Error", description: "Please select at least one user to chat with."});
+        return;
+    }
+    const participantIds = [currentUser.id, ...selectedUsersForNewChat];
+    const result = await createMockChat(participantIds);
+
+    if (result.success && result.chat) {
+        setSelectedChat(result.chat);
+        setIsCreateChatOpen(false);
+        setSelectedUsersForNewChat([]); // Reset selection
+        router.replace(`/messages?chatId=${result.chat.id}`, { scroll: false });
+        toast({ title: "Chat Created!", description: `Chat with ${result.chat.participantIds.length -1 > 1 ? 'group' : mockUsers.find(u => u.id === selectedUsersForNewChat[0])?.name } started.`});
+    } else {
+        toast({ variant: "destructive", title: "Error", description: result.error || "Could not create or find chat."});
+    }
+  };
+  
+  const userConnections = currentUser ? mockUsers.filter(u => currentUser.connections.includes(u.id) && u.id !== currentUser.id) : [];
+
 
   if (isChatLoading || !currentUser) {
     return <div className="flex h-full items-center justify-center">Loading chats...</div>;
@@ -147,23 +185,65 @@ export default function MessagesPage() {
         <div className="p-4 border-b">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-xl font-semibold">Messages</h2>
-            <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5 text-primary"/></Button>
+            <Dialog open={isCreateChatOpen} onOpenChange={setIsCreateChatOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon"><PlusCircle className="h-5 w-5 text-primary"/></Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Start a New Chat</DialogTitle>
+                  <DialogDescription>Select one or more connections to begin a conversation.</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[300px] my-4 pr-4">
+                  {userConnections.length > 0 ? (
+                    <div className="space-y-2">
+                      {userConnections.map(connection => (
+                        <Label
+                          key={connection.id}
+                          htmlFor={`user-${connection.id}`}
+                          className="flex items-center p-2 hover:bg-accent/50 rounded-md cursor-pointer border"
+                        >
+                          <Checkbox
+                            id={`user-${connection.id}`}
+                            checked={selectedUsersForNewChat.includes(connection.id)}
+                            onCheckedChange={() => handleToggleUserForNewChat(connection.id)}
+                            className="mr-3"
+                          />
+                          <Avatar className="h-8 w-8 mr-2">
+                            <AvatarImage src={connection.profile.profilePictureUrl || `https://placehold.co/32x32.png?text=${getInitials(connection.name)}`} alt={connection.name} data-ai-hint="profile avatar small"/>
+                            <AvatarFallback>{getInitials(connection.name)}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{connection.name}</span>
+                        </Label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center">You have no connections to start a chat with.</p>
+                  )}
+                </ScrollArea>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={handleCreateNewChat} disabled={selectedUsersForNewChat.length === 0} className="bg-primary hover:bg-primary/90">
+                    <UsersIcon className="mr-2 h-4 w-4" /> Create Chat
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search chats..." className="pl-8" />
+            <Input id="message-search-input" name="message-search-input" placeholder="Search chats..." className="pl-8" />
           </div>
         </div>
         <ScrollArea className="flex-1">
           {userChats.map(chat => {
-            const details = getParticipantDetails(chat.participantIds, currentUser.id);
+            const details = getParticipantDetails(chat.participantIds, currentUser.id, chat.isGroupChat, chat.groupName);
             const lastMessageContent = chat.lastMessage?.content;
-            // Truncate preview text
             const previewText = lastMessageContent 
               ? (lastMessageContent.length > 20 
                   ? lastMessageContent.substring(0, 20) + "..." 
                   : lastMessageContent)
-              : "No messages yet";
+              : (chat.isGroupChat ? "Group chat created" : "No messages yet");
 
             return (
               <button
@@ -203,12 +283,15 @@ export default function MessagesPage() {
                 </Button>
               )}
               <Avatar className="h-10 w-10">
-                 <AvatarImage src={getParticipantDetails(selectedChat.participantIds, currentUser.id).avatar} data-ai-hint="profile avatar small"/>
-                 <AvatarFallback>{getInitials(getParticipantDetails(selectedChat.participantIds, currentUser.id).name)}</AvatarFallback>
+                 <AvatarImage src={getParticipantDetails(selectedChat.participantIds, currentUser.id, selectedChat.isGroupChat, selectedChat.groupName).avatar} data-ai-hint="profile avatar small"/>
+                 <AvatarFallback>{getInitials(getParticipantDetails(selectedChat.participantIds, currentUser.id, selectedChat.isGroupChat, selectedChat.groupName).name)}</AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-semibold">{getParticipantDetails(selectedChat.participantIds, currentUser.id).name}</p>
-                 <Link href={`/profile/${getParticipantDetails(selectedChat.participantIds, currentUser.id).userId || ''}`} className="text-xs text-primary hover:underline">View Profile</Link>
+                <p className="font-semibold">{getParticipantDetails(selectedChat.participantIds, currentUser.id, selectedChat.isGroupChat, selectedChat.groupName).name}</p>
+                 {!selectedChat.isGroupChat && getParticipantDetails(selectedChat.participantIds, currentUser.id).userId &&
+                    <Link href={`/profile/${getParticipantDetails(selectedChat.participantIds, currentUser.id).userId || ''}`} className="text-xs text-primary hover:underline">View Profile</Link>
+                 }
+                 {/* Could add "View Group Info" for group chats here */}
               </div>
             </div>
             <ScrollArea className="flex-1 p-4"> 
@@ -246,7 +329,7 @@ export default function MessagesPage() {
           <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
             <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold text-foreground">Select a chat to start messaging</h2>
-            <p className="text-muted-foreground">Or create a new conversation from a user's profile.</p>
+            <p className="text-muted-foreground">Or create a new conversation using the '+' icon.</p>
           </div>
         )}
       </div>
