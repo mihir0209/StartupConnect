@@ -1,19 +1,21 @@
+# To learn more about how to use Nix to configure your environment
+# see: https://idx.dev/docs/customize-idx-env
 {pkgs}: {
-  channel = "stable-23.11";
-  packages = [
-    pkgs.nodejs_20
-    pkgs.nodePackages.pnpm
-    pkgs.git
-  ];
-  # Configure your environment with Nix.
-  # We recommend starting with the Nix classics first,
-  # then move onto other Nix ecosystem tools.
+  # Add your Nix packages here
+  # For example,
+  # pkgs.myPackage
+  # pkgs.myOtherPackage
+
+  # Configure your environment variables
   env = {};
-  # This is a list of scripts that will be run when the workspace starts.
-  # The key of the attribute indicates the name of the script.
-  # Note: These scripts are not automatically restarted if they exit.
-  # For that, we recommend using a process manager like PM2.
-  # services.firebase.emulators = {
-  #   detect = true;
-  # };
+
+  # It's possible IDX expects the 'services' attribute set to exist,
+  # even if empty, if it was part of the original project template.
+  services = {};
+
+  # Enter a command that starts your dev server
+  start = "npm run dev";
+
+  # Any script that should be run before the dev server starts
+  # beforeStart = "echo Starting dev server...";
 }
