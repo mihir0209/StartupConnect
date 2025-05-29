@@ -10,13 +10,13 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { Loader2 } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { user, isLoading, profileCompletionRequired, pendingNewUserInfo } = useAuth(); // Renamed pendingFirebaseUser
+  const { user, isLoading, profileCompletionRequired, pendingNewUserInfo } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading) {
-      if (profileCompletionRequired && pendingNewUserInfo) { // Use renamed variable
+      if (profileCompletionRequired && pendingNewUserInfo) { 
         if (pathname !== '/settings/profile-setup') {
           router.replace('/settings/profile-setup');
         }
@@ -26,9 +26,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [user, isLoading, profileCompletionRequired, pendingNewUserInfo, router, pathname]); // Use renamed variable
+  }, [user, isLoading, profileCompletionRequired, pendingNewUserInfo, router, pathname]);
 
-  if (isLoading || (profileCompletionRequired && pendingNewUserInfo && pathname !== '/settings/profile-setup') || (!user && !profileCompletionRequired && pathname !== '/login' && pathname !== '/signup')) { // Use renamed variable
+  if (isLoading || (profileCompletionRequired && pendingNewUserInfo && pathname !== '/settings/profile-setup') || (!user && !profileCompletionRequired && pathname !== '/login' && pathname !== '/signup')) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
