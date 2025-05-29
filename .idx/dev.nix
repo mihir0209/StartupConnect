@@ -1,21 +1,43 @@
 # To learn more about how to use Nix to configure your environment
-# see: https://idx.dev/docs/customize-idx-env
+# see: https://firebase.google.com/docs/studio/customize-workspace
 {pkgs}: {
-  # Add your Nix packages here
-  # For example,
-  # pkgs.myPackage
-  # pkgs.myOtherPackage
-
-  # Configure your environment variables
+  # Which nixpkgs channel to use.
+  channel = "stable-24.11"; # or "unstable"
+  # Use https://search.nixos.org/packages to find packages
+  packages = [
+    pkgs.nodejs_20
+    pkgs.zulu
+  ];
+  # Sets environment variables in the workspace
   env = {};
-
-  # It's possible IDX expects the 'services' attribute set to exist,
-  # even if empty, if it was part of the original project template.
-  services = {};
-
-  # Enter a command that starts your dev server
-  start = "npm run dev";
-
-  # Any script that should be run before the dev server starts
-  # beforeStart = "echo Starting dev server...";
+  # This adds a file watcher to startup the firebase emulators. The emulators will only start if
+  # a firebase.json file is written into the user's directory
+  services.firebase.emulators = {
+    detect = true;
+    projectId = "demo-app";
+    services = ["auth" "firestore"];
+  };
+  idx = {
+    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
+    extensions = [
+      # "vscodevim.vim"
+    ];
+    workspace = {
+      onCreate = {
+        default.openFiles = [
+          "src/app/page.tsx"
+        ];
+      };
+    };
+    # Enable previews and customize configuration
+    previews = {
+      enable = true;
+      previews = {
+        web = {
+          command = ["npm" "run" "dev" "--" "--port" "$PORT" "--hostname" "0.0.0.0"];
+          manager = "web";
+        };
+      };
+    };
+  };
 }
